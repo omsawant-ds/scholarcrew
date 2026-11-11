@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from ..grounding import normalize_citations
 from ..state import CrewState
 from .common import ask, format_sources
 
@@ -24,7 +25,7 @@ def make_analyst(llm: BaseChatModel) -> Callable[[CrewState], dict]:
     def analyst(state: CrewState) -> dict:
         sources = state.get("sources", [])
         user = f"Question: {state['question']}\n\nSources:\n{format_sources(sources)}"
-        notes = ask(llm, SYSTEM, user).strip()
+        notes = normalize_citations(ask(llm, SYSTEM, user)).strip()
         if not notes:
             # Degrade gracefully: hand the writer the raw material instead of nothing.
             notes = "Analysis unavailable. Raw sources:\n" + format_sources(sources, 300)

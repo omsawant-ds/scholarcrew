@@ -69,13 +69,14 @@ model judging:
 
 | Metric | Before | After |
 |---|---|---|
-| Faithfulness (cited claims the sources support) | 22% | **56%** |
-| Numeric grounding (statistics found in the cited source) | 0% (n=1) | **56%** (n=3) |
-| Citation coverage | 21% | **32%** |
+| Faithfulness (cited claims the sources support) | 43% | **71%** |
+| Numeric grounding (statistics found in the cited source) | 0% (n=1) | **89%** (n=3) |
+| Citation coverage | 34% | **45%** |
 
-This is a small sample and about 44% of statistics are still unsupported, so it is a measured
-improvement and not a solved problem. Method, per-question results and limitations are in
-[`docs/evaluation.md`](docs/evaluation.md).
+This is a small sample (5 questions, one run each) and run-to-run noise is large, so treat it as
+a promising result and not a proven one. A second change, a self-check in the writer, was also
+measured and was not shown to help. Method, per-question results, a correction to numbers that
+were reported here earlier, and limitations are in [`docs/evaluation.md`](docs/evaluation.md).
 
 ## Run it locally
 
@@ -140,7 +141,7 @@ ruff check src tests streamlit_app.py
 
 - [x] Multi-agent research system with a web app
 - [x] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
-- [ ] Stop unsupported figures and uncited reports: about 1 report in 5 still comes back with no citations
+- [ ] Run the evaluation on all 30 questions with repeated runs, to separate real effects from noise
 - [ ] LoRA fine-tuned writer model, compared against the base model with the evaluation pipeline
 
 ## License
