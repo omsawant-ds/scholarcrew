@@ -74,9 +74,9 @@ model judging:
 | Citation coverage | 34% | **45%** |
 
 This is a small sample (5 questions, one run each) and run-to-run noise is large, so treat it as
-a promising result and not a proven one. A second change, a self-check in the writer, was also
-measured and was not shown to help. Method, per-question results, a correction to numbers that
-were reported here earlier, and limitations are in [`docs/evaluation.md`](docs/evaluation.md).
+a promising result and not a proven one. A second change, a self-check in the writer, was tried
+and dropped because it showed no benefit. Method, per-question results, a correction to numbers
+that were reported here earlier, and limitations are in [`docs/evaluation.md`](docs/evaluation.md).
 
 ## Run it locally
 

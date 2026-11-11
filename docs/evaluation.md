@@ -41,7 +41,7 @@ A judge that cannot answer, or returns something unparseable, produces "no score
 of the mean (the table shows `n`, the number of reports each mean covers). It is never counted as
 zero or as a pass.
 
-## Results: measuring two changes
+## Results: one change kept, one tried and dropped
 
 The first evaluation runs showed the agents **inventing statistics**. In one report, 8 of 12
 statistics were not in the source they cited, and figures such as "0.71 to 0.84" appeared in no
@@ -49,17 +49,18 @@ retrieved source at all. Two causes were found: the analyst saw only the first 7
 each abstract, which cuts off the results, and no prompt told the agents to avoid inventing
 numbers. Two changes were then measured:
 
-1. **Improved prompts:** the analyst sees the full abstract (1200 characters), and the analyst and
-   writer prompts forbid figures that are not in the sources.
-2. **Grounding guard** (on top of 1): after drafting, the writer checks its own draft with the same
-   rules used for scoring. If it cites nothing, or states a figure that is not in its cited
-   source, it gets one targeted revision and keeps it only if it is better.
+1. **Improved prompts (kept):** the analyst sees the full abstract (1200 characters), and the
+   analyst and writer prompts forbid figures that are not in the sources.
+2. **Writer self-check (tried and dropped):** after drafting, the writer checked its own draft with
+   the same rules used for scoring. If the draft cited nothing, or stated a figure that is not in
+   its cited source, it got one targeted revision and kept it only if it was better. It was
+   implemented in the first commit of pull request #3 and removed in the same pull request.
 
 Same 5 questions, same generator (`gpt-oss-20b`), same judge (`qwen3.8-27b`, a different model
 family), identical scoring rules. Full tables: [old agents](results/baseline.md),
-[improved prompts](results/improved.md), [prompts + guard](results/guard.md).
+[improved prompts](results/improved.md), [prompts + self-check](results/self-check.md).
 
-| Metric | Old agents | Improved prompts | Prompts + guard |
+| Metric | Old agents | Improved prompts | Prompts + self-check (dropped) |
 |---|---|---|---|
 | Faithfulness (judged) | 43% | **71%** | 58% |
 | Numeric grounding | 0% (n=1) | **89%** (n=3) | 100% (n=3) |
@@ -75,16 +76,18 @@ family), identical scoring rules. Full tables: [old agents](results/baseline.md)
 statistics, so numeric grounding rests on very small counts (n is the number of reports that
 contained a statistic).
 
-**Grounding guard: not shown to help.** Faithfulness was lower with the guard (58% against 71%),
-the difference is within the run-to-run noise described below, and reports took about 25 seconds
-longer. The guard works as designed: it costs nothing when a draft is clean, and in one live case
-it removed an unsupported figure. But this evaluation cannot show that it improves scores, so it
-should be treated as a safety net and not as a proven improvement.
+**Writer self-check: not shown to help, so it was dropped.** Faithfulness was lower with it (58%
+against 71%), the difference is within the run-to-run noise described below, and reports took
+about 25 seconds longer. It worked as designed: it cost nothing when a draft was clean, and in one
+live case it removed an unsupported figure. But it adds a model call, and on a free tier the
+per-minute token limit is exactly what makes calls fail, so a feature that adds calls needs a
+measured benefit and this one had none. It can be revisited if a larger test (all 30 questions,
+repeated runs) shows a gain.
 
 **What this does and does not show**
 
 - **Noise is large.** The same code produced a faithfulness of 73% on one question in one run and
-  25% in another, on a report the guard did not touch. Every comparison here uses one generation
+  25% in another, on a report the self-check did not touch. Every comparison here uses one generation
   per question, so differences of 10 to 20 points between columns should not be trusted. Only
   the old-agents versus improved-prompts gap, which is larger and consistent across questions, is
   reasonably convincing.

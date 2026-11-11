@@ -1,8 +1,8 @@
 """Checks that a report's citations and statistics are supported by its sources.
 
-These checks are shared on purpose. The writer uses them to inspect its own draft, and the
-evaluation pipeline uses the same code to score the final report, so the system is held to exactly
-the standard it is measured by.
+Citation parsing and statistic checking live here so the agents and the evaluation pipeline agree
+on what counts as a citation. The agents rewrite every bracket style as plain [n]; the evaluation
+scores reports with the same parser.
 """
 
 from __future__ import annotations
@@ -117,26 +117,3 @@ def check_statistics(report: str, sources: list[dict]) -> tuple[int, list[tuple[
             if not present(number, cited_text):
                 unsupported.append((number, strip_cites(unit)))
     return total, unsupported
-
-
-def problem_count(report: str, sources: list[dict]) -> int:
-    """How many grounding problems a report has: no citations at all, plus each unsupported figure."""
-    body, _ = split_report(report)
-    return (0 if cite_ids(body) else 1) + len(check_statistics(report, sources)[1])
-
-
-def find_issues(report: str, sources: list[dict], max_figures: int = 8) -> list[str]:
-    """Plain-language problems to hand back to the writer for a targeted revision."""
-    body, _ = split_report(report)
-    issues = []
-    if not cite_ids(body):
-        issues.append(
-            "The report cites no sources. Put a citation such as [3] after every statement of "
-            "fact, using only source numbers that appear in the notes."
-        )
-    for number, sentence in check_statistics(report, sources)[1][:max_figures]:
-        issues.append(
-            f'The figure {number} is not in the source cited for this statement: "{sentence[:180]}". '
-            "Remove the figure or describe the finding in words."
-        )
-    return issues
