@@ -89,3 +89,11 @@ def test_build_stops_after_repeated_failures(tmp_path):
 
     counts = build(rows, tmp_path, broken)
     assert counts["aborted"] and len(calls) == 3 and not (tmp_path / "train.jsonl").exists()
+
+
+def test_copy_notes_baseline_returns_the_notes_with_a_title():
+    from scholarcrew.finetune.baselines import copy_notes_writer
+
+    body = copy_notes_writer({"question": "q?", "notes": "A finding【1】."})
+    assert body == "# q?\n\nA finding[1]."
+    assert copy_notes_writer({"question": "q?", "notes": "# Own title\n\nx [1]"}).startswith("# Own title")
