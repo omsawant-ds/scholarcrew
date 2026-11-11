@@ -31,6 +31,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "scholarcrew.evaluation" = ["questions.json"]
+"scholarcrew.finetune" = ["train_questions.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
