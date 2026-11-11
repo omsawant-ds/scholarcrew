@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from ..grounding import normalize_citations
 from ..state import CrewState
 from .common import ask
 
@@ -28,8 +29,11 @@ def render_references(sources: list[dict]) -> str:
 def make_writer(llm: BaseChatModel) -> Callable[[CrewState], dict]:
     def writer(state: CrewState) -> dict:
         sources = state.get("sources", [])
-        body = ask(llm, SYSTEM, f"Question: {state['question']}\n\nNotes:\n{state.get('notes', '')}")
-        body = body.strip() or f"# {state['question']}\n\n{state.get('notes', '')}"
+        notes = state.get("notes", "")
+        question = state["question"]
+        # Models sometimes cite as 【3】; rewrite every style as plain [3] so reports look consistent.
+        body = normalize_citations(ask(llm, SYSTEM, f"Question: {question}\n\nNotes:\n{notes}")).strip()
+        body = body or f"# {question}\n\n{notes}"
         report = f"{body}\n\n{render_references(sources)}\n"
         return {"report": report, "log": ["writer: report drafted"]}
 

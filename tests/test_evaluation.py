@@ -22,12 +22,10 @@ from scholarcrew.evaluation import judge as judge_mod
 from scholarcrew.evaluation.judge import judge_faithfulness, judge_relevance
 from scholarcrew.evaluation.metrics import (
     citation_scores,
-    cite_ids,
     numeric_grounding,
-    split_report,
-    statistics_in,
     structure_score,
 )
+from scholarcrew.grounding import cite_ids, split_report, statistics_in
 
 REPORT = """# Title of the report
 
