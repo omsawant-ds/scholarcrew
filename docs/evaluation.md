@@ -121,6 +121,25 @@ Free API tiers cap tokens per minute and per day, and this shaped the design:
   fits roughly one or two runs per model per day. Use different models for generating and judging
   to spread the load across separate quotas.
 
+## Comparing a fine-tuned writer
+
+The writer is being fine-tuned with LoRA (see `src/scholarcrew/finetune/`). To keep that
+comparison honest, it is set up with these safeguards:
+
+- **Same input for every writer.** Sources and notes are frozen once per question, so only the
+  writer changes.
+- **A do-nothing baseline.** `copy_notes_writer` returns the analyst's notes as the report. A tuned
+  model has to beat this to show it learned something.
+- **Held-out questions.** The 118 training questions are checked to be disjoint from the 30
+  evaluation questions.
+- **Do not trust the metric the model was trained on.** The training data is filtered with the
+  rule-based grounding checks, so a tuned model can score well on them simply by learning to
+  satisfy them. The headline number is therefore the faithfulness judged by a different model
+  family. The rule-based metrics are reported alongside it.
+- **Small data, modest expectations.** About a hundred examples teach format and discipline, not
+  new knowledge, and the tuned model cannot exceed its teacher.
+- **Licenses.** Check the base model's license before publishing any weights.
+
 ## Limitations
 
 - **Judge bias.** By default the judge is the same model as the generator, which tends to rate

@@ -21,6 +21,11 @@ SYSTEM = (
 )
 
 
+def writer_input(question: str, notes: str) -> str:
+    """The user message the writer receives. Fine-tuning data uses this exact format."""
+    return f"Question: {question}\n\nNotes:\n{notes}"
+
+
 def render_references(sources: list[dict]) -> str:
     lines = [f"[{s['id']}] {s['cite']}" for s in sources]
     return "## References\n\n" + "\n".join(lines)
@@ -32,7 +37,7 @@ def make_writer(llm: BaseChatModel) -> Callable[[CrewState], dict]:
         notes = state.get("notes", "")
         question = state["question"]
         # Models sometimes cite as 【3】; rewrite every style as plain [3] so reports look consistent.
-        body = normalize_citations(ask(llm, SYSTEM, f"Question: {question}\n\nNotes:\n{notes}")).strip()
+        body = normalize_citations(ask(llm, SYSTEM, writer_input(question, notes))).strip()
         body = body or f"# {question}\n\n{notes}"
         report = f"{body}\n\n{render_references(sources)}\n"
         return {"report": report, "log": ["writer: report drafted"]}
