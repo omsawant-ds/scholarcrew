@@ -11,3 +11,4 @@ reports/
 dist/
 build/
 *.log
+eval_results/

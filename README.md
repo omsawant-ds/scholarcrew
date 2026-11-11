@@ -53,6 +53,30 @@ agents:
 [`docs/sample-report.md`](docs/sample-report.md) is a real, unedited report for the question
 *"What are the main techniques for evaluating LLM agents?"* It cites 16 sources.
 
+## Evaluation
+
+An automated pipeline scores every report on faithfulness, numeric grounding, citation validity
+and coverage, relevance and structure, using a separate judge model.
+
+```bash
+python -m scholarcrew.evaluation --quick
+```
+
+It was used to find and fix a real problem. The first runs showed the agents inventing
+statistics that appeared in none of the retrieved sources. After giving the analyst the full
+abstracts and adding explicit rules about figures, on the same 5 questions with a different
+model judging:
+
+| Metric | Before | After |
+|---|---|---|
+| Faithfulness (cited claims the sources support) | 22% | **56%** |
+| Numeric grounding (statistics found in the cited source) | 0% (n=1) | **56%** (n=3) |
+| Citation coverage | 21% | **32%** |
+
+This is a small sample and about 44% of statistics are still unsupported, so it is a measured
+improvement and not a solved problem. Method, per-question results and limitations are in
+[`docs/evaluation.md`](docs/evaluation.md).
+
 ## Run it locally
 
 ```bash
@@ -94,13 +118,14 @@ Free apps sleep after a period without traffic and wake when someone visits.
 src/scholarcrew/
   agents/        supervisor, researcher, analyst, writer
   tools/         arXiv search, web search, report saving
+  evaluation/    scoring pipeline: metrics, judge, runner, question set
   graph.py       LangGraph wiring
   providers.py   provider presets and key check
   config.py      settings from environment
   cli.py         command-line entry point
 streamlit_app.py web app
 tests/           offline tests (fake model, fake search)
-docs/            screenshot and sample report
+docs/            screenshot, sample report, evaluation method and results
 ```
 
 ## Development
@@ -114,7 +139,8 @@ ruff check src tests streamlit_app.py
 ## Roadmap
 
 - [x] Multi-agent research system with a web app
-- [ ] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
+- [x] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
+- [ ] Stop unsupported figures and uncited reports: about 1 report in 5 still comes back with no citations
 - [ ] LoRA fine-tuned writer model, compared against the base model with the evaluation pipeline
 
 ## License

@@ -13,7 +13,10 @@ SYSTEM = (
     "You are a technical writer. Write a clear Markdown report that answers the question using "
     "ONLY the analyst's notes. Structure: a title, a short summary, 2-4 themed sections, and a "
     "'Limitations' section. Keep the inline citations like [1] from the notes. Do not write a "
-    "references list; it is added automatically."
+    "references list; it is added automatically.\n"
+    "Rules for numbers: use a figure only if it appears in the notes, copy it exactly, and keep "
+    "it next to the citation it came with. Never add figures, benchmarks or results of your own. "
+    "Cite every statement of fact."
 )
 
 
