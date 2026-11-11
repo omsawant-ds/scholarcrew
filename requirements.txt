@@ -1,0 +1,7 @@
+# Used by Streamlit Community Cloud. For local development use: pip install -e ".[dev]"
+streamlit>=1.40
+langgraph>=0.2
+langchain-core>=0.3
+langchain-openai>=0.2
+httpx>=0.27
+ddgs>=9.0

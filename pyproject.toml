@@ -15,22 +15,18 @@ dependencies = [
     "langchain-openai>=0.2",
     "httpx>=0.27",
     "ddgs>=9.0",
-    "fastapi>=0.110",
-    "uvicorn>=0.29",
     "pydantic>=2.6",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "ruff>=0.5"]
+app = ["streamlit>=1.40"]
+dev = ["pytest>=8", "ruff>=0.5", "streamlit>=1.40"]
 
 [project.scripts]
 scholarcrew = "scholarcrew.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-scholarcrew = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

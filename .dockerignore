@@ -1,8 +1,0 @@
-.venv
-.git
-.env
-reports
-tests
-__pycache__
-*.egg-info
-.install.log

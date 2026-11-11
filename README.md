@@ -32,20 +32,26 @@ scholarcrew "How do researchers reduce hallucination in RAG systems?"
 Any OpenAI-compatible endpoint works. Set `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`
 (see `.env.example` for Groq, Gemini and Ollama presets).
 
-## Deploy a free demo (Hugging Face Spaces)
+## Web app (bring your own key)
 
-The repo ships a Docker image and a GitHub Action that keeps a Space in sync with `main`.
+`streamlit_app.py` is a web UI where each visitor pastes **their own** free API key (Groq or
+Gemini). The key stays in that browser session: it is not stored, logged or shared, and the
+host's own key is never used, so a public demo cannot drain anyone's quota.
 
-1. Create a Space at huggingface.co/new-space: SDK **Docker**, template **Blank**, visibility Public.
-2. In the Space, open *Settings → Variables and secrets* and add three **secrets**:
-   `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` (same values as your `.env`).
-3. Create a Hugging Face access token with **write** access (Settings → Access Tokens).
-4. In this GitHub repo, open *Settings → Secrets and variables → Actions* and add:
-   secret `HF_TOKEN` (the token) and variable `HF_SPACE` (e.g. `your-username/scholarcrew`).
-5. Push to `main` (or run the *Deploy to Hugging Face Space* workflow manually). The Space builds and goes live.
+```bash
+pip install -e ".[app]"
+streamlit run streamlit_app.py
+```
 
-The public demo is limited to 5 questions per hour per visitor so a free API key is not drained.
-The free tier sleeps when idle, so the first load can take about 30 seconds.
+### Deploy it free on Streamlit Community Cloud
+
+1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
+2. Click **Create app**, pick this repo, branch `main`, main file `streamlit_app.py`.
+3. Under **Advanced settings**, choose Python 3.12. No secrets are needed.
+4. Deploy. Dependencies come from `requirements.txt`.
+
+Free apps go to sleep after a period without traffic and wake when someone visits.
+
 
 ## Development
 
