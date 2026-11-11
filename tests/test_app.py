@@ -34,8 +34,23 @@ def offline(monkeypatch):
 def test_loads_cleanly_and_guides_the_user_to_add_a_key():
     at = new_app()
     assert not at.exception
-    assert any("API key" in i.value for i in at.info)
-    assert at.title == [] and any("ScholarCrew" in m.value for m in at.markdown)
+    assert any("Get started" in m.value and "API key" in m.value for m in at.markdown)
+    assert any("ScholarCrew" in m.value for m in at.markdown)
+
+
+def test_page_contains_no_emojis(offline):
+    """Design rule: plain text only. Checks every label and block of text the page renders."""
+    import re
+
+    emoji = re.compile("[\U0001f300-\U0001faff☀-➿⭐⬆⏩-⏿←-⇿]")
+    at = new_app()
+    field(at, "API key").set_value("test-key").run()
+    field(at, "Research question").set_value("Does RAG reduce hallucination?").run()
+    next(b for b in at.button if b.label == "Research").click().run()
+
+    texts = [m.value for m in at.markdown] + [b.label for b in at.button] + [t.label for t in at.tabs]
+    texts += [c.value for c in at.caption] + [s.value for s in at.subheader]
+    assert not [t for t in texts if emoji.search(t)]
 
 
 def test_example_button_fills_the_question():
@@ -64,7 +79,7 @@ def test_full_run_shows_metrics_tabs_and_cited_report(offline):
     assert "## References" in result["report"]
     assert len(result["sources"]) == 2
     assert [m.label for m in at.metric] == ["Sources", "arXiv papers", "Web pages", "Time"]
-    assert [t.label for t in at.tabs] == ["📄 Report", "📚 Sources", "🧾 Agent log"]
+    assert [t.label for t in at.tabs] == ["Report", "Sources", "Agent log"]
 
 
 def test_bad_key_shows_a_clear_error_and_no_report(monkeypatch):
