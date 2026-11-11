@@ -10,3 +10,4 @@ reports/
 .install2.log
 dist/
 build/
+*.log

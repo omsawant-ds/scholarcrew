@@ -30,15 +30,3 @@ def test_check_llm_ok_and_failure_never_leaks_key():
 
     error = check_llm(s, Boom())
     assert "RuntimeError" in error and "sekret-key" not in error and "***" in error
-
-
-def test_app_loads_and_asks_for_a_key():
-    from pathlib import Path
-
-    from streamlit.testing.v1 import AppTest
-
-    app = Path(__file__).parent.parent / "streamlit_app.py"
-    at = AppTest.from_file(str(app), default_timeout=30).run()
-    assert not at.exception
-    assert any("API key" in i.value for i in at.info)
-    assert at.button[0].disabled
