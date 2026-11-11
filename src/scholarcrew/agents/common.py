@@ -40,7 +40,8 @@ def parse_json(text: str) -> Any | None:
     return None
 
 
-def format_sources(sources: list[dict], limit_chars: int = 700) -> str:
+def format_sources(sources: list[dict], limit_chars: int = 1200) -> str:
+    """Numbered source excerpts. 1200 characters covers a full arXiv abstract, where results live."""
     return "\n\n".join(
         f"[{s['id']}] ({s['kind']}) {s['title']}\n{s['text'][:limit_chars]}\n{s['url']}"
         for s in sources
