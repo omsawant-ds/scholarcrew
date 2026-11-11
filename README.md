@@ -1,64 +1,121 @@
 # ScholarCrew
 
-A multi-agent research assistant. Ask a question and a team of agents researches it on arXiv and
-the web, then writes a cited report.
+A multi-agent research assistant. Ask a question and a team of AI agents researches it on arXiv
+and the web, then writes a report with citations.
 
-> Work in progress. Stage 1 of 3: multi-agent system. Next: automated evaluation, LoRA-tuned writer.
+[![CI](https://github.com/omsawant-ds/scholarcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/omsawant-ds/scholarcrew/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**[Live demo](https://scholarcrew.streamlit.app)** &middot; **[Sample report](docs/sample-report.md)**
+
+![ScholarCrew web app](docs/screenshot.jpg)
+
+The demo uses a bring-your-own-key model: paste a free Groq or Gemini API key into the sidebar.
+The key stays in your browser session and is never stored or logged.
 
 ## How it works
 
-```
-question -> Supervisor -> Researcher -> Supervisor -> Analyst -> Supervisor -> Writer -> report.md
-                          (arXiv + web)               (key points)              (citations)
+```mermaid
+flowchart LR
+    Q([Question]) --> S{Supervisor}
+    S --> R[Researcher<br/>arXiv + web search]
+    R --> S
+    S --> A[Analyst<br/>extracts and compares findings]
+    A --> S
+    S --> W[Writer<br/>cited Markdown report]
+    W --> S
+    S --> O([Report])
 ```
 
-- **Supervisor** decides which agent runs next and when to stop (with a step cap and a fixed fallback order).
-- **Researcher** gathers papers and web sources.
-- **Analyst** extracts findings and compares sources.
-- **Writer** produces the final Markdown report with citations.
+A [LangGraph](https://github.com/langchain-ai/langgraph) supervisor routes work between three
+agents:
 
-## Quick start
+- **Researcher** plans search queries, then gathers papers from arXiv and pages from the web.
+- **Analyst** extracts the key findings, compares sources, and flags weak evidence.
+- **Writer** drafts the final report from the analyst's notes.
+
+### Design decisions
+
+- **Routing is validated, not trusted.** Free and small models often return malformed JSON. The
+  supervisor checks every routing decision, ignores ones that repeat finished work, and falls back
+  to a fixed researcher, analyst, writer order. A step cap guarantees the run always ends.
+- **Citations cannot be invented.** The reference list is built from the sources that were actually
+  retrieved, not written by the model.
+- **Failures are visible.** If the model or provider errors, the agents degrade gracefully and log
+  a warning instead of failing silently. The web app runs a one-call preflight so a bad key or
+  model name gives a clear message before any work starts.
+- **Provider-agnostic.** Any OpenAI-compatible endpoint works: Groq, Gemini, Ollama, vLLM.
+- **Tested offline.** The test suite uses a scripted fake model and fake search tools, so it needs
+  no network and no API key.
+
+## Sample output
+
+[`docs/sample-report.md`](docs/sample-report.md) is a real, unedited report for the question
+*"What are the main techniques for evaluating LLM agents?"* It cites 16 sources.
+
+## Run it locally
 
 ```bash
 python -m venv .venv
 .venv/Scripts/activate          # Windows; use `source .venv/bin/activate` on macOS/Linux
-pip install -e ".[dev]"
-cp .env.example .env            # then add a free Groq or Gemini key, or use Ollama
+pip install -e ".[app]"
+cp .env.example .env            # add a free Groq or Gemini key, or point at Ollama
+```
+
+Command line:
+
+```bash
 scholarcrew "How do researchers reduce hallucination in RAG systems?"
 ```
 
-## Configuration
-
-Any OpenAI-compatible endpoint works. Set `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`
-(see `.env.example` for Groq, Gemini and Ollama presets).
-
-## Web app (bring your own key)
-
-`streamlit_app.py` is a web UI where each visitor pastes **their own** free API key (Groq or
-Gemini). The key stays in that browser session: it is not stored, logged or shared, and the
-host's own key is never used, so a public demo cannot drain anyone's quota.
+Web app:
 
 ```bash
-pip install -e ".[app]"
 streamlit run streamlit_app.py
 ```
 
-### Deploy it free on Streamlit Community Cloud
+### Configuration
 
-1. Sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
-2. Click **Create app**, pick this repo, branch `main`, main file `streamlit_app.py`.
+Set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` in `.env`. The file has ready-made presets for
+Groq, Gemini and Ollama. The web app ignores `.env` and asks each visitor for their own key.
+
+## Deploy your own copy (free)
+
+1. Fork this repo and sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
+2. Click **Create app**, pick your fork, branch `main`, main file `streamlit_app.py`.
 3. Under **Advanced settings**, choose Python 3.12. No secrets are needed.
 4. Deploy. Dependencies come from `requirements.txt`.
 
-Free apps go to sleep after a period without traffic and wake when someone visits.
+Free apps sleep after a period without traffic and wake when someone visits.
 
+## Project layout
+
+```
+src/scholarcrew/
+  agents/        supervisor, researcher, analyst, writer
+  tools/         arXiv search, web search, report saving
+  graph.py       LangGraph wiring
+  providers.py   provider presets and key check
+  config.py      settings from environment
+  cli.py         command-line entry point
+streamlit_app.py web app
+tests/           offline tests (fake model, fake search)
+docs/            screenshot and sample report
+```
 
 ## Development
 
 ```bash
-pytest          # no network or API key needed
-ruff check src tests
+pip install -e ".[dev]"
+pytest
+ruff check src tests streamlit_app.py
 ```
+
+## Roadmap
+
+- [x] Multi-agent research system with a web app
+- [ ] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
+- [ ] LoRA fine-tuned writer model, compared against the base model with the evaluation pipeline
 
 ## License
 
