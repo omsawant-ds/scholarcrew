@@ -16,6 +16,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("question", help="the research question to investigate")
     args = parser.parse_args(argv)
 
+    # Windows consoles default to cp1252 and crash on characters like U+2011 that models emit.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     settings = Settings.from_env()
     llm = make_llm(settings)
     report = ""

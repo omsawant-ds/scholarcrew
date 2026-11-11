@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
+log = logging.getLogger("scholarcrew")
+
 
 def ask(llm: BaseChatModel, system: str, user: str) -> str:
-    """One LLM call. Returns text; returns '' if the call fails so callers can fall back."""
+    """One LLM call. Returns text; returns '' if the call fails so callers can fall back.
+
+    Failures are logged as warnings so a wrong model name or bad key is visible, not silent.
+    """
     try:
         reply = llm.invoke([SystemMessage(content=system), HumanMessage(content=user)])
-    except Exception:  # noqa: BLE001 - provider errors vary; agents have fallbacks
+    except Exception as exc:  # noqa: BLE001 - provider errors vary; agents have fallbacks
+        log.warning("LLM call failed (%s): %s", type(exc).__name__, str(exc)[:200])
         return ""
     content = reply.content
     return content if isinstance(content, str) else str(content)
