@@ -61,13 +61,44 @@ def make_example(row: dict, body: str) -> dict:
     }
 
 
-def draft(llm, row: dict) -> str:
+TEACHER_EXTRA = (
+    "\nExtra rule: every sentence that states a fact, including the summary and the "
+    "limitations, must end with a citation like [1] taken from the notes. Only headings may go "
+    "uncited. Do not mention these rules."
+)
+
+
+def draft(llm, row: dict, feedback: list[str] | None = None) -> str:
     """Ask the teacher for a report body. Raises if the model call failed, so a rate limit is not
-    mistaken for a bad report."""
+    mistaken for a bad report.
+
+    The teacher gets a stricter prompt than the writer does. The saved training example still
+    uses the plain writer prompt, so the student learns the behavior without being told to.
+    """
+    system = SYSTEM + TEACHER_EXTRA
+    user = writer_input(row["question"], row["notes"])
+    if feedback:
+        user += (
+            "\n\nA previous draft was rejected: " + "; ".join(feedback)
+            + ". Write the report again and fix this."
+        )
     recorder = _Recorder(llm)
-    body = normalize_citations(ask(recorder, SYSTEM, writer_input(row["question"], row["notes"]))).strip()
+    body = normalize_citations(ask(recorder, system, user)).strip()
     if recorder.errors:
         raise RuntimeError(recorder.errors[0])
+    return body
+
+
+def draft_best(llm, row: dict, attempts: int = 2) -> str:
+    """Draft up to `attempts` times, retrying with the reasons the last draft was rejected.
+    Stops at the first draft that passes. Returns the last draft otherwise."""
+    feedback: list[str] | None = None
+    body = ""
+    for _ in range(max(1, attempts)):
+        body = draft(llm, row, feedback)
+        feedback = quality_problems(body, row["sources"])
+        if not feedback:
+            break
     return body
 
 
@@ -129,6 +160,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frozen-dir", default="data/frozen/train")
     parser.add_argument("--out-dir", default="data/sft")
     parser.add_argument("--delay", type=float, default=3.0)
+    parser.add_argument("--attempts", type=int, default=2,
+                        help="drafts per question; a rejected draft is retried with the reasons")
     args = parser.parse_args(argv)
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -149,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     def progress(i: int, total: int, row: dict, status: str) -> None:
         print(f"[{i}/{total}] {row['id']}: {status}", file=sys.stderr, flush=True)
 
-    counts = build(rows, Path(args.out_dir), lambda row: draft(llm, row),
+    counts = build(rows, Path(args.out_dir), lambda row: draft_best(llm, row, args.attempts),
                    delay=args.delay, on_progress=progress)
     print(json.dumps(counts))
     if counts["aborted"]:

@@ -97,3 +97,43 @@ def test_copy_notes_baseline_returns_the_notes_with_a_title():
     body = copy_notes_writer({"question": "q?", "notes": "A finding【1】."})
     assert body == "# q?\n\nA finding[1]."
     assert copy_notes_writer({"question": "q?", "notes": "# Own title\n\nx [1]"}).startswith("# Own title")
+
+
+class Recording:
+    """Replies from a list, one per call, and remembers what it was asked."""
+
+    def __init__(self, *replies):
+        self.replies, self.asked = list(replies), []
+
+    def invoke(self, messages):
+        self.asked.append([m.content for m in messages])
+        return AIMessage(content=self.replies.pop(0))
+
+
+def test_teacher_gets_the_stricter_prompt_but_the_example_keeps_the_plain_one():
+    from scholarcrew.finetune.build_dataset import TEACHER_EXTRA
+
+    llm = Recording(GOOD)
+    draft(llm, ROW)
+    assert llm.asked[0][0] == SYSTEM + TEACHER_EXTRA
+    assert make_example(ROW, GOOD)["messages"][0]["content"] == SYSTEM  # no teacher-only rule
+
+
+def test_draft_best_retries_a_rejected_draft_with_the_reasons():
+    from scholarcrew.finetune.build_dataset import draft_best
+
+    llm = Recording("# T\n\nShort [1].", GOOD)
+    assert draft_best(llm, ROW, attempts=2) == GOOD.strip()
+    assert len(llm.asked) == 2 and "previous draft was rejected" in llm.asked[1][1]
+
+
+def test_draft_best_stops_at_the_first_good_draft_and_respects_the_limit():
+    from scholarcrew.finetune.build_dataset import draft_best
+
+    good_first = Recording(GOOD)
+    draft_best(good_first, ROW, attempts=3)
+    assert len(good_first.asked) == 1  # no wasted tokens
+
+    always_bad = Recording("# T\n\nShort [1].", "# T\n\nShort [1].", "# T\n\nShort [1].")
+    draft_best(always_bad, ROW, attempts=2)
+    assert len(always_bad.asked) == 2
