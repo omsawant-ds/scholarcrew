@@ -24,7 +24,7 @@ from pathlib import Path
 from ..agents import make_analyst, make_researcher
 from ..config import Settings
 from ..evaluation.runner import LLMFailure, _Recorder, load_questions
-from ..llm import make_llm
+from ..llm import make_llm_pool
 from ..providers import check_llm
 from ..tools import search_arxiv, search_web
 
@@ -131,11 +131,11 @@ def main(argv: list[str] | None = None) -> int:
 
     base = Settings.from_env()
     settings = replace(base, model=args.model or base.model)
-    error = check_llm(settings)
+    llm = make_llm_pool(settings)
+    error = check_llm(settings, llm)
     if error:
         print(f"Cannot reach the model ({settings.model}): {error}", file=sys.stderr)
         return 2
-    llm = make_llm(settings)
 
     def progress(i: int, total: int, item: dict, status: str) -> None:
         print(f"[{i}/{total}] {item['id']}: {status}", file=sys.stderr, flush=True)

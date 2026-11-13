@@ -26,6 +26,13 @@ class Settings:
     model: str
     max_steps: int = 8
     reports_dir: Path = Path("reports")
+    # Extra keys, tried in order when one fails or runs out of quota. Used by the batch scripts.
+    api_keys: tuple[str, ...] = ()
+
+    @property
+    def all_keys(self) -> tuple[str, ...]:
+        """The main key first, then any extra keys, without blanks or repeats."""
+        return tuple(dict.fromkeys(k for k in (self.api_key, *self.api_keys) if k))
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -36,4 +43,5 @@ class Settings:
             model=os.getenv("LLM_MODEL", "llama3.2:3b"),
             max_steps=int(os.getenv("MAX_STEPS", "8")),
             reports_dir=Path(os.getenv("REPORTS_DIR", "reports")),
+            api_keys=tuple(k.strip() for k in os.getenv("LLM_API_KEYS", "").split(",") if k.strip()),
         )
