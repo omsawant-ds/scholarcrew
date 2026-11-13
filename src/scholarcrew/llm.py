@@ -34,10 +34,12 @@ def key_unusable(exc: Exception) -> bool:
     """True when switching to another key could help: the key is rejected, or its daily quota is
     spent. A per-minute limit is not one of these: waiting a moment fixes it, and the client
     already does that."""
+    # The client library's classes carry a vendor prefix in some versions (OpenAIRateLimitError),
+    # so match on how the name ends.
     name = type(exc).__name__
-    if name in ("AuthenticationError", "PermissionDeniedError"):
+    if name.endswith(("AuthenticationError", "PermissionDeniedError")):
         return True
-    return name == "RateLimitError" and bool(_DAILY_LIMIT.search(str(exc)))
+    return name.endswith("RateLimitError") and bool(_DAILY_LIMIT.search(str(exc)))
 
 
 class KeyPool:

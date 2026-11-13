@@ -78,3 +78,17 @@ def test_check_llm_hides_every_key_in_its_error_message():
     bad = Model("a", fail=RuntimeError("rejected key-one and key-two"))
     error = check_llm(settings, bad)
     assert "key-one" not in error and "key-two" not in error and "***" in error
+
+
+def test_vendor_prefixed_error_names_are_recognized():
+    """Regression: the real client raises OpenAIRateLimitError / OpenAIAuthenticationError, and
+    matching only the bare names meant a spent key was never skipped."""
+    class OpenAIRateLimitError(Exception):
+        pass
+
+    class OpenAIAuthenticationError(Exception):
+        pass
+
+    assert key_unusable(OpenAIRateLimitError("Rate limit reached on tokens per day (TPD)"))
+    assert not key_unusable(OpenAIRateLimitError("Rate limit reached on tokens per minute (TPM)"))
+    assert key_unusable(OpenAIAuthenticationError("Invalid API Key"))
