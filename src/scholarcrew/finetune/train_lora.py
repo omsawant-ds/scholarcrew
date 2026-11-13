@@ -36,6 +36,17 @@ def split_holdout(rows: list[dict], fraction: float, seed: int) -> tuple[list[di
     return shuffled[count:], shuffled[:count]
 
 
+def latest_checkpoint(directory: Path) -> str | None:
+    """The newest saved training checkpoint in `directory`, or None. A run that was cut off (a
+    dropped connection, a crashed notebook) can pick up from here instead of starting over."""
+    found = []
+    for path in Path(directory).glob("checkpoint-*"):
+        step = path.name.rsplit("-", 1)[-1]
+        if path.is_dir() and step.isdigit():
+            found.append((int(step), path))
+    return str(max(found)[1]) if found else None
+
+
 def encode(row: dict, tokenizer, max_len: int) -> dict | None:
     """Turn one chat into token ids, with the loss counted on the report only.
 
@@ -147,8 +158,14 @@ def train(args: argparse.Namespace) -> dict:
         "learning_rate": args.lr,
         "lr_scheduler_type": "cosine",
         "warmup_steps": max(1, int(0.05 * updates)),
-        "logging_steps": 5,
-        "save_strategy": "no",
+        "logging_steps": 1,
+        # One plain line per step instead of a progress bar that redraws itself: in a notebook the
+        # redrawing floods the page and can crash the browser tab.
+        "disable_tqdm": not args.progress_bar,
+        # Save the small adapter every few steps, so a crash costs minutes, not the whole run.
+        "save_strategy": "steps",
+        "save_steps": args.save_every,
+        "save_total_limit": 2,
         "bf16": use_bf16,
         "fp16": on_gpu and not use_bf16,
         "optim": "paged_adamw_8bit" if args.four_bit and on_gpu else "adamw_torch",
@@ -170,7 +187,11 @@ def train(args: argparse.Namespace) -> dict:
         model=model, args=arguments, train_dataset=train_set, eval_dataset=val_set or None,
         data_collator=make_collator(tokenizer.pad_token_id),
     )
-    trainer.train()
+    checkpoints = Path(args.out) / "checkpoints"
+    resume_from = None if args.fresh else latest_checkpoint(checkpoints)
+    if resume_from:
+        print(f"Resuming from {resume_from}")
+    trainer.train(resume_from_checkpoint=resume_from)
 
     out = Path(args.out)
     model.save_pretrained(out)
@@ -232,6 +253,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="load the model in full precision (needs a big GPU, or a tiny model)")
     p.add_argument("--no-sample", dest="sample", action="store_false",
                    help="skip printing a sample report after training")
+    p.add_argument("--save-every", type=int, default=3, help="save progress every N steps")
+    p.add_argument("--fresh", action="store_true", help="ignore saved progress and start over")
+    p.add_argument("--progress-bar", action="store_true", help="show a live progress bar")
     p.add_argument("--push-to-hub", metavar="USER/REPO", help="also upload the adapter, privately")
     return p
 
