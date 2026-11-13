@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -45,10 +46,18 @@ def make_researcher(
                     Source(id=len(sources) + 1, kind=kind, title=title, url=url, text=text, cite=cite)
                 )
 
-        for q in queries:
-            for p in arxiv_search(q, per_query):
+        # arXiv asks clients to send one request at a time, so its queries stay in sequence. They
+        # run alongside the web searches, which roughly halves the wait. Results are added in
+        # the same order as a sequential run, so source numbering does not change.
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            arxiv_job = pool.submit(lambda: [arxiv_search(q, per_query) for q in queries])
+            web_job = pool.submit(lambda: [web_search(q, per_query) for q in queries])
+            arxiv_results, web_results = arxiv_job.result(), web_job.result()
+
+        for papers, pages in zip(arxiv_results, web_results):
+            for p in papers:
                 add("arxiv", p.title, p.url, p.summary, p.cite())
-            for w in web_search(q, per_query):
+            for w in pages:
                 add("web", w.title, w.url, w.snippet, f"{w.title}. {w.url}")
 
         return {"sources": sources, "log": [f"researcher: {len(sources)} sources from {queries}"]}

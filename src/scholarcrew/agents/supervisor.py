@@ -44,6 +44,11 @@ def make_supervisor(llm: BaseChatModel, max_steps: int) -> Callable[[CrewState],
             choice = "writer" if state.get("sources") and not state.get("report") else "FINISH"
             return {"next": choice, "steps": steps, "log": [f"supervisor: step cap hit -> {choice}"]}
 
+        if expected == "FINISH":
+            # Everything is done, so there is nothing to decide. Skipping the model call saves
+            # a few seconds on every run.
+            return {"next": "FINISH", "steps": steps, "log": ["supervisor -> FINISH"]}
+
         progress = (
             f"Question: {state['question']}\n"
             f"Sources found: {len(state.get('sources', []))}\n"

@@ -37,6 +37,7 @@ st.set_page_config(
     page_title="ScholarCrew",
     page_icon=":material/travel_explore:",
     layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown(
@@ -157,10 +158,34 @@ st.markdown(
       .foot { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 3rem; }
       .foot a { color: var(--muted); }
 
+      [data-testid="stExpander"] { border: 1px solid var(--border); border-radius: 14px;
+              background: var(--surface); margin-bottom: 1rem; }
+
+      /* ---------- Phones ---------- */
       @media (max-width: 640px) {
-        .pipe { grid-template-columns: 1fr; gap: .6rem; }
+        .block-container { padding: 1.2rem 1rem 2rem; }
+        .hero h1 { font-size: 2.3rem; margin: .8rem 0 .4rem; }
+        .hero p { font-size: .98rem; line-height: 1.55; }
+        .chips { gap: .4rem; margin-top: .8rem; }
+        /* Three small cards in a row instead of three tall stacked ones */
+        .pipe { gap: .5rem; margin: 1.2rem 0 .5rem; }
+        .step { padding: .7rem .65rem; border-radius: 12px; }
         .step:not(:last-child)::after { display: none; }
-        .hero h1 { font-size: 2.5rem; }
+        .step .d { display: none; }
+        .step .t { font-size: .9rem; margin-top: .4rem; }
+        .step .n { font-size: .68rem; }
+        .step .st { font-size: .68rem; gap: .25rem; }
+        .bar { margin-bottom: 1.2rem; }
+        /* Example questions and result figures as a two-by-two grid */
+        .st-key-examples [data-testid="stHorizontalBlock"],
+        .st-key-metrics [data-testid="stHorizontalBlock"] { flex-wrap: wrap; gap: .5rem; }
+        .st-key-examples [data-testid="stColumn"],
+        .st-key-examples [data-testid="column"],
+        .st-key-metrics [data-testid="stColumn"],
+        .st-key-metrics [data-testid="column"] {
+          flex: 1 1 calc(50% - .5rem) !important; min-width: calc(50% - .5rem) !important; width: auto !important; }
+        .stButton > button[kind="secondary"] { font-size: .8rem; padding: .25rem .4rem; }
+        .guide { padding: 1rem 1.1rem; }
       }
     </style>
     """,
@@ -192,23 +217,22 @@ def use_example(text: str) -> None:
     st.session_state.run_requested = True
 
 
-def render_sidebar():
-    with st.sidebar:
-        st.markdown('<div class="lbl">LLM settings</div>', unsafe_allow_html=True)
+def render_settings():
+    """Provider and key. Kept in the page itself: on a phone the sidebar hides behind an arrow
+    and new visitors never find where to paste their key."""
+    with st.expander("LLM settings", expanded=not st.session_state.get("api_key")):
         name = st.selectbox("Provider", list(PROVIDERS))
         provider = PROVIDERS[name]
-        api_key = st.text_input("API key", type="password", placeholder="Paste your key")
+        api_key = st.text_input("API key", type="password", placeholder="Paste your key", key="api_key")
         if provider.key_url:
             st.markdown(f"[Get a free {name.split(' (')[0]} key]({provider.key_url})")
         with st.expander("Advanced", expanded=not provider.base_url):
             base_url = st.text_input("Base URL", value=provider.base_url, key=f"url-{name}")
             model = st.text_input("Model", value=provider.default_model, key=f"model-{name}")
-        st.divider()
         st.caption(
             "Your key lives only in this browser session. It is never saved or logged, and "
             "it is sent only to the provider you picked."
         )
-        st.caption(f"[Source code]({REPO_URL})")
     return settings_for(base_url, api_key, model), name, provider
 
 
@@ -261,11 +285,12 @@ def run_crew(question: str, settings, board) -> dict | None:
 def render_result(result: dict) -> None:
     sources = result["sources"]
     arxiv = sum(1 for s in sources if s["kind"] == "arxiv")
-    cols = st.columns(4)
-    cols[0].metric("Sources", len(sources))
-    cols[1].metric("arXiv papers", arxiv)
-    cols[2].metric("Web pages", len(sources) - arxiv)
-    cols[3].metric("Time", f"{result['seconds']:.0f}s")
+    with st.container(key="metrics"):
+        cols = st.columns(4)
+        cols[0].metric("Sources", len(sources))
+        cols[1].metric("arXiv papers", arxiv)
+        cols[2].metric("Web pages", len(sources) - arxiv)
+        cols[3].metric("Time", f"{result['seconds']:.0f}s")
 
     report_tab, sources_tab, log_tab = st.tabs(["Report", "Sources", "Agent log"])
     with report_tab:
@@ -289,8 +314,6 @@ def render_result(result: dict) -> None:
 
 # ---------------------------------------------------------------- page
 
-settings, provider_name, provider = render_sidebar()
-issue = problems(settings)
 result = st.session_state.get("result")
 
 st.markdown(
@@ -309,6 +332,9 @@ board_slot.markdown(
     unsafe_allow_html=True,
 )
 
+settings, provider_name, provider = render_settings()
+issue = problems(settings)
+
 st.markdown('<div class="lbl">Research question</div>', unsafe_allow_html=True)
 question_col, button_col = st.columns([5, 1], vertical_alignment="bottom")
 question_col.text_input(
@@ -321,9 +347,10 @@ question_col.text_input(
 )
 button_col.button("Research", type="primary", use_container_width=True, on_click=queue_run)
 
-example_cols = st.columns(len(EXAMPLES))
-for col, (label, text), i in zip(example_cols, EXAMPLES, range(len(EXAMPLES))):
-    col.button(label, key=f"ex{i}", on_click=use_example, args=(text,), use_container_width=True)
+with st.container(key="examples"):
+    example_cols = st.columns(len(EXAMPLES))
+    for col, (label, text), i in zip(example_cols, EXAMPLES, range(len(EXAMPLES))):
+        col.button(label, key=f"ex{i}", on_click=use_example, args=(text,), use_container_width=True)
 
 if not settings.api_key:
     key_link = (
@@ -334,7 +361,7 @@ if not settings.api_key:
     st.markdown(
         '<div class="guide"><div class="gt">Get started</div><ol>'
         f"<li>Create a free API key at {key_link}.</li>"
-        "<li>Paste it into the API key field in the sidebar (top left arrow if collapsed).</li>"
+        "<li>Paste it into the API key field under LLM settings above.</li>"
         "<li>Ask a question or pick an example above.</li></ol></div>",
         unsafe_allow_html=True,
     )
