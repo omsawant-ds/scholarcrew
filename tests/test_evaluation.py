@@ -377,8 +377,8 @@ def test_question_set_is_well_formed_and_filterable():
 @pytest.fixture
 def offline_cli(monkeypatch):
     real = runner.stream_crew
-    monkeypatch.setattr(cli, "make_llm", lambda s, temperature=0.2: EvalFake())
-    monkeypatch.setattr(cli, "check_llm", lambda s: None)
+    monkeypatch.setattr(cli, "make_llm_pool", lambda s, temperature=0.2: EvalFake())
+    monkeypatch.setattr(cli, "check_llm", lambda s, m=None: None)
     monkeypatch.setattr(
         runner, "stream_crew",
         lambda q, m, s, **kw: real(q, m, s, arxiv_search=fake_arxiv, web_search=fake_web))
@@ -423,7 +423,7 @@ def test_cli_refuses_to_resume_with_a_different_model(offline_cli, tmp_path, cap
 
 
 def test_cli_stops_early_on_a_bad_key(monkeypatch, tmp_path, capsys):
-    monkeypatch.setattr(cli, "make_llm", lambda s, temperature=0.2: EvalFake())
-    monkeypatch.setattr(cli, "check_llm", lambda s: "AuthenticationError: bad key")
+    monkeypatch.setattr(cli, "make_llm_pool", lambda s, temperature=0.2: EvalFake())
+    monkeypatch.setattr(cli, "check_llm", lambda s, m=None: "AuthenticationError: bad key")
     assert cli.main(["--n", "1", "--out-dir", str(tmp_path)]) == 2
     assert "Cannot reach the generator model" in capsys.readouterr().err

@@ -62,6 +62,8 @@ def check_llm(settings: Settings, llm: BaseChatModel | None = None) -> str | Non
     try:
         (llm or make_llm(settings)).invoke([HumanMessage(content="Reply with the single word: ok")])
     except Exception as exc:  # noqa: BLE001 - surface any provider error to the user
-        message = str(exc).replace(settings.api_key, "***") if settings.api_key else str(exc)
+        message = str(exc)
+        for key in settings.all_keys:
+            message = message.replace(key, "***")
         return f"{type(exc).__name__}: {message[:300]}"
     return None
