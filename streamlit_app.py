@@ -201,9 +201,15 @@ def render_sidebar():
         api_key = st.text_input("API key", type="password", placeholder="Paste your key")
         if provider.key_url:
             st.markdown(f"[Get a free {name.split(' (')[0]} key]({provider.key_url})")
-        with st.expander("Advanced", expanded=not provider.base_url):
-            base_url = st.text_input("Base URL", value=provider.base_url, key=f"url-{name}")
-            model = st.text_input("Model", value=provider.default_model, key=f"model-{name}")
+        # Presets show their address and model for information only. Only "Custom" is editable.
+        fixed = bool(provider.base_url)
+        with st.expander("Advanced", expanded=not fixed):
+            base_url = st.text_input(
+                "Base URL", value=provider.base_url, key=f"url-{name}", disabled=fixed
+            )
+            model = st.text_input(
+                "Model", value=provider.default_model, key=f"model-{name}", disabled=fixed
+            )
         st.divider()
         st.caption(
             "Your key lives only in this browser session. It is never saved or logged, and "

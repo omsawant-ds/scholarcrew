@@ -95,3 +95,12 @@ def test_bad_key_shows_a_clear_error_and_no_report(monkeypatch):
 
     assert any("RuntimeError" in e.value and "test-key" not in e.value for e in at.error)
     assert not at.session_state["result"]
+
+
+def test_preset_address_and_model_are_read_only_but_custom_is_editable():
+    at = new_app()
+    assert field(at, "Base URL").disabled and field(at, "Model").disabled  # Groq preset
+    assert field(at, "Model").value == "openai/gpt-oss-120b"
+
+    at.selectbox[0].select("Custom (OpenAI-compatible)").run()
+    assert not field(at, "Base URL").disabled and not field(at, "Model").disabled
