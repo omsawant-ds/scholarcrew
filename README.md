@@ -126,7 +126,7 @@ src/scholarcrew/
   config.py      settings from environment
   cli.py         command-line entry point
 streamlit_app.py web app
-notebooks/       Colab notebook that trains the writer on a free GPU
+notebooks/       Colab and Kaggle notebooks that train the writer on a free GPU
 tests/           offline tests (fake model, fake search)
 docs/            screenshot, sample report, evaluation method and results
 ```
