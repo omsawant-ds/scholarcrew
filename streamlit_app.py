@@ -37,7 +37,7 @@ st.set_page_config(
     page_title="ScholarCrew",
     page_icon=":material/travel_explore:",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 st.markdown(
@@ -158,34 +158,10 @@ st.markdown(
       .foot { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 3rem; }
       .foot a { color: var(--muted); }
 
-      [data-testid="stExpander"] { border: 1px solid var(--border); border-radius: 14px;
-              background: var(--surface); margin-bottom: 1rem; }
-
-      /* ---------- Phones ---------- */
       @media (max-width: 640px) {
-        .block-container { padding: 1.2rem 1rem 2rem; }
-        .hero h1 { font-size: 2.3rem; margin: .8rem 0 .4rem; }
-        .hero p { font-size: .98rem; line-height: 1.55; }
-        .chips { gap: .4rem; margin-top: .8rem; }
-        /* Three small cards in a row instead of three tall stacked ones */
-        .pipe { gap: .5rem; margin: 1.2rem 0 .5rem; }
-        .step { padding: .7rem .65rem; border-radius: 12px; }
+        .pipe { grid-template-columns: 1fr; gap: .6rem; }
         .step:not(:last-child)::after { display: none; }
-        .step .d { display: none; }
-        .step .t { font-size: .9rem; margin-top: .4rem; }
-        .step .n { font-size: .68rem; }
-        .step .st { font-size: .68rem; gap: .25rem; }
-        .bar { margin-bottom: 1.2rem; }
-        /* Example questions and result figures as a two-by-two grid */
-        .st-key-examples [data-testid="stHorizontalBlock"],
-        .st-key-metrics [data-testid="stHorizontalBlock"] { flex-wrap: wrap; gap: .5rem; }
-        .st-key-examples [data-testid="stColumn"],
-        .st-key-examples [data-testid="column"],
-        .st-key-metrics [data-testid="stColumn"],
-        .st-key-metrics [data-testid="column"] {
-          flex: 1 1 calc(50% - .5rem) !important; min-width: calc(50% - .5rem) !important; width: auto !important; }
-        .stButton > button[kind="secondary"] { font-size: .8rem; padding: .25rem .4rem; }
-        .guide { padding: 1rem 1.1rem; }
+        .hero h1 { font-size: 2.5rem; }
       }
     </style>
     """,
@@ -217,22 +193,23 @@ def use_example(text: str) -> None:
     st.session_state.run_requested = True
 
 
-def render_settings():
-    """Provider and key. Kept in the page itself: on a phone the sidebar hides behind an arrow
-    and new visitors never find where to paste their key."""
-    with st.expander("LLM settings", expanded=not st.session_state.get("api_key")):
+def render_sidebar():
+    with st.sidebar:
+        st.markdown('<div class="lbl">LLM settings</div>', unsafe_allow_html=True)
         name = st.selectbox("Provider", list(PROVIDERS))
         provider = PROVIDERS[name]
-        api_key = st.text_input("API key", type="password", placeholder="Paste your key", key="api_key")
+        api_key = st.text_input("API key", type="password", placeholder="Paste your key")
         if provider.key_url:
             st.markdown(f"[Get a free {name.split(' (')[0]} key]({provider.key_url})")
         with st.expander("Advanced", expanded=not provider.base_url):
             base_url = st.text_input("Base URL", value=provider.base_url, key=f"url-{name}")
             model = st.text_input("Model", value=provider.default_model, key=f"model-{name}")
+        st.divider()
         st.caption(
             "Your key lives only in this browser session. It is never saved or logged, and "
             "it is sent only to the provider you picked."
         )
+        st.caption(f"[Source code]({REPO_URL})")
     return settings_for(base_url, api_key, model), name, provider
 
 
@@ -314,6 +291,8 @@ def render_result(result: dict) -> None:
 
 # ---------------------------------------------------------------- page
 
+settings, provider_name, provider = render_sidebar()
+issue = problems(settings)
 result = st.session_state.get("result")
 
 st.markdown(
@@ -331,9 +310,6 @@ board_slot.markdown(
     pipeline_html({key: "done" if result else "idle" for key, *_ in STEPS}),
     unsafe_allow_html=True,
 )
-
-settings, provider_name, provider = render_settings()
-issue = problems(settings)
 
 st.markdown('<div class="lbl">Research question</div>', unsafe_allow_html=True)
 question_col, button_col = st.columns([5, 1], vertical_alignment="bottom")
@@ -361,7 +337,7 @@ if not settings.api_key:
     st.markdown(
         '<div class="guide"><div class="gt">Get started</div><ol>'
         f"<li>Create a free API key at {key_link}.</li>"
-        "<li>Paste it into the API key field under LLM settings above.</li>"
+        "<li>Paste it into the API key field in the sidebar (top left arrow if collapsed).</li>"
         "<li>Ask a question or pick an example above.</li></ol></div>",
         unsafe_allow_html=True,
     )
