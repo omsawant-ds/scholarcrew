@@ -89,9 +89,12 @@ def test_collator_pads_labels_with_ignore_and_masks_attention():
     assert batch["attention_mask"].tolist() == [[1, 1, 1], [1, 1, 0]]
 
 
-def test_defaults_target_a_16gb_gpu():
+def test_defaults_fit_a_16gb_gpu():
+    """Regression: batch 2 at 4096 tokens ran out of memory on a free T4. The 151k-word vocabulary
+    makes the output layer large, so one example at a time, with updates every 16, is the safe setting."""
     args = build_parser().parse_args([])
-    assert args.model == "Qwen/Qwen3-8B" and args.four_bit and args.max_len == 4096
+    assert args.model == "Qwen/Qwen3-8B" and args.four_bit and args.max_len == 3072
+    assert args.batch_size == 1 and args.batch_size * args.grad_accum == 16
     assert build_parser().parse_args(["--no-4bit"]).four_bit is False
 
 
