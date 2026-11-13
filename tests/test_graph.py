@@ -77,3 +77,35 @@ def test_supervisor_skips_the_model_once_everything_is_done():
     done = {"question": "q?", "sources": [{"id": 1}], "notes": "n", "report": "r", "steps": 3}
     update = make_supervisor(llm, max_steps=8)(done)
     assert update["next"] == "FINISH" and llm.calls == []
+
+
+def test_a_slow_search_costs_sources_not_time():
+    import time
+
+    from scholarcrew.agents import make_researcher
+
+    def stuck_arxiv(query, n):
+        time.sleep(1.5)
+        return fake_arxiv(query, n)
+
+    began = time.perf_counter()
+    out = make_researcher(FakeLLM(), stuck_arxiv, fake_web, search_budget=0.3)({"question": "q?"})
+    assert time.perf_counter() - began < 1.0  # did not wait for arXiv
+    assert [s["kind"] for s in out["sources"]] == ["web"]  # kept what had arrived
+    assert "stopped waiting" in out["log"][0]
+
+
+def test_arxiv_gives_up_at_once_when_it_does_not_answer(monkeypatch):
+    from scholarcrew.tools import arxiv
+
+    calls = []
+
+    # None is how _fetch reports a timeout or error
+    monkeypatch.setattr(arxiv, "_fetch", lambda q, n, c: calls.append(q))
+    assert arxiv.search_arxiv("quantization accuracy") == []
+    assert len(calls) == 1  # no second request to a service that is already slow
+
+    calls.clear()
+    monkeypatch.setattr(arxiv, "_fetch", lambda q, n, c: calls.append(q) or [])
+    assert arxiv.search_arxiv("quantization accuracy") == []
+    assert len(calls) == 2  # an answer with no matches still falls back to OR

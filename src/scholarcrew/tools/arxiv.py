@@ -62,7 +62,8 @@ def build_query(query: str, operator: str = "AND", max_terms: int = 6) -> str:
     return f" {operator} ".join(f"all:{t}" for t in terms)
 
 
-def _fetch(search_query: str, max_results: int, client: httpx.Client | None) -> list[Paper]:
+def _fetch(search_query: str, max_results: int, client: httpx.Client | None) -> list[Paper] | None:
+    """Papers for one query. [] means arXiv answered with no matches; None means it did not answer."""
     params = {
         "search_query": search_query,
         "start": 0,
@@ -77,14 +78,17 @@ def _fetch(search_query: str, max_results: int, client: httpx.Client | None) -> 
         resp.raise_for_status()
         return parse_feed(resp.text)
     except (httpx.HTTPError, ET.ParseError):
-        return []
+        return None
 
 
 def search_arxiv(query: str, max_results: int = 5, client: httpx.Client | None = None) -> list[Paper]:
     """Return the most relevant arXiv papers for a query. Returns [] on network errors.
 
-    Tries all keywords together first; if that finds nothing, retries matching any keyword.
+    Tries all keywords together first; if that finds nothing, retries matching any keyword. If
+    arXiv does not answer at all (a timeout or an error) it gives up at once: a second request to
+    a service that is already slow only doubles the wait.
     """
-    return _fetch(build_query(query), max_results, client) or _fetch(
-        build_query(query, "OR"), max_results, client
-    )
+    papers = _fetch(build_query(query), max_results, client)
+    if papers is None:
+        return []
+    return papers or _fetch(build_query(query, "OR"), max_results, client) or []
