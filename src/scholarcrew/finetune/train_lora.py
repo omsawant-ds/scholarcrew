@@ -83,6 +83,10 @@ def make_collator(pad_id: int):
 
 
 def train(args: argparse.Namespace) -> dict:
+    import os
+
+    # Lets the GPU reuse fragmented memory. Must be set before torch starts using the GPU.
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     import torch
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     from transformers import (
@@ -219,9 +223,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--epochs", type=float, default=3)
     p.add_argument("--lr", type=float, default=2e-4)
     p.add_argument("--rank", type=int, default=16, help="LoRA rank")
-    p.add_argument("--batch-size", type=int, default=2)
-    p.add_argument("--grad-accum", type=int, default=8, help="batches combined per update")
-    p.add_argument("--max-len", type=int, default=4096, help="longer examples are skipped")
+    p.add_argument("--batch-size", type=int, default=1)
+    p.add_argument("--grad-accum", type=int, default=16, help="batches combined per update")
+    p.add_argument("--max-len", type=int, default=3072, help="longer examples are skipped")
     p.add_argument("--val-fraction", type=float, default=0.1, help="share held out to watch overfitting")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--no-4bit", dest="four_bit", action="store_false",
