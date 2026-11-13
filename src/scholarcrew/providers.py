@@ -23,6 +23,10 @@ PROVIDERS: dict[str, Provider] = {
     "Groq (free)": Provider(
         "https://api.groq.com/openai/v1", "openai/gpt-oss-120b", "https://console.groq.com/keys"
     ),
+    # Same account and key as the one above, but a smaller, quicker model with its own daily quota.
+    "Groq fast (free)": Provider(
+        "https://api.groq.com/openai/v1", "openai/gpt-oss-20b", "https://console.groq.com/keys"
+    ),
     "Google Gemini (free)": Provider(
         "https://generativelanguage.googleapis.com/v1beta/openai/",
         "gemini-2.0-flash",
