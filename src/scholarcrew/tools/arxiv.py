@@ -71,9 +71,9 @@ def _fetch(search_query: str, max_results: int, client: httpx.Client | None) -> 
     }
     try:
         if client is not None:
-            resp = client.get(ARXIV_API, params=params, timeout=20)
+            resp = client.get(ARXIV_API, params=params, timeout=12)
         else:
-            resp = httpx.get(ARXIV_API, params=params, timeout=20, follow_redirects=True)
+            resp = httpx.get(ARXIV_API, params=params, timeout=12, follow_redirects=True)
         resp.raise_for_status()
         return parse_feed(resp.text)
     except (httpx.HTTPError, ET.ParseError):
