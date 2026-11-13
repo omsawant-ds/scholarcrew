@@ -120,12 +120,13 @@ src/scholarcrew/
   agents/        supervisor, researcher, analyst, writer
   tools/         arXiv search, web search, report saving
   evaluation/    scoring pipeline: metrics, judge, runner, question set
-  finetune/      writer fine-tuning data: freeze inputs, build and filter the training set
+  finetune/      writer fine-tuning: freeze inputs, build and filter data, LoRA training
   graph.py       LangGraph wiring
   providers.py   provider presets and key check
   config.py      settings from environment
   cli.py         command-line entry point
 streamlit_app.py web app
+notebooks/       Colab notebook that trains the writer on a free GPU
 tests/           offline tests (fake model, fake search)
 docs/            screenshot, sample report, evaluation method and results
 ```
@@ -143,7 +144,7 @@ ruff check src tests streamlit_app.py
 - [x] Multi-agent research system with a web app
 - [x] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
 - [ ] Run the evaluation on all 30 questions with repeated runs, to separate real effects from noise
-- [ ] LoRA fine-tuned writer model, compared against the base model with the evaluation pipeline (in progress: data pipeline built; training and comparison to come)
+- [ ] LoRA fine-tuned writer model, compared against the base model with the evaluation pipeline (in progress: data pipeline and training script built; training and comparison to come)
 
 ## License
 
