@@ -2,7 +2,13 @@
 
 import pytest
 
-from scholarcrew.finetune.train_lora import build_parser, encode, encode_all, split_holdout
+from scholarcrew.finetune.train_lora import (
+    build_parser,
+    encode,
+    encode_all,
+    latest_checkpoint,
+    split_holdout,
+)
 
 
 class FakeTokenizer:
@@ -106,3 +112,18 @@ def test_loader_accepts_a_file_saved_with_a_windows_byte_order_mark(tmp_path):
     path = tmp_path / "train.jsonl"
     path.write_text(json.dumps(example(1)) + "\n" + json.dumps(example(2)) + "\n", encoding="utf-8-sig")
     assert [r["id"] for r in load_examples(path)] == ["tr-001", "tr-002"]
+
+
+def test_resume_finds_the_newest_checkpoint_by_step_number(tmp_path):
+    assert latest_checkpoint(tmp_path) is None  # nothing saved yet
+    assert latest_checkpoint(tmp_path / "missing") is None
+    for name in ("checkpoint-3", "checkpoint-12", "checkpoint-6"):
+        (tmp_path / name).mkdir()
+    (tmp_path / "checkpoint-99.txt").write_text("not a folder")
+    (tmp_path / "notes").mkdir()
+    assert latest_checkpoint(tmp_path).endswith("checkpoint-12")  # 12 beats 6 and 3, not text order
+
+
+def test_training_defaults_are_crash_tolerant():
+    args = build_parser().parse_args([])
+    assert args.save_every == 3 and not args.fresh and not args.progress_bar
