@@ -10,7 +10,7 @@ and the web, then writes a report with citations.
 
 ![ScholarCrew web app](docs/screenshot.jpg)
 
-The demo uses a bring-your-own-key model: paste a free Groq or Gemini API key into the LLM settings panel.
+The demo uses a bring-your-own-key model: paste a free Groq or Gemini API key into the sidebar.
 The key stays in your browser session and is never stored or logged.
 
 ## How it works
