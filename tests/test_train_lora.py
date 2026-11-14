@@ -124,6 +124,17 @@ def test_resume_finds_the_newest_checkpoint_by_step_number(tmp_path):
     assert latest_checkpoint(tmp_path).endswith("checkpoint-12")  # 12 beats 6 and 3, not text order
 
 
+def test_the_held_out_check_uses_the_same_small_batch_as_training():
+    """Regression: the evaluation batch defaulted to 8, and 8 long examples at once overflowed a
+    16 GB GPU (a 5.27 GiB allocation) when the first held-out check ran."""
+    import inspect
+
+    from scholarcrew.finetune import train_lora
+
+    source = inspect.getsource(train_lora.train)
+    assert '"per_device_eval_batch_size": args.batch_size' in source
+
+
 def test_training_defaults_are_crash_tolerant():
     args = build_parser().parse_args([])
     assert args.save_every == 3 and not args.fresh and not args.progress_bar

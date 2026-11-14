@@ -154,6 +154,9 @@ def train(args: argparse.Namespace) -> dict:
         "output_dir": str(Path(args.out) / "checkpoints"),
         "num_train_epochs": args.epochs,
         "per_device_train_batch_size": args.batch_size,
+        # The default is 8. The output layer is huge (a 152k-word vocabulary), so 8 examples at once
+        # need about 5 GiB for the scores alone and ran a 16 GB GPU out of memory at the first check.
+        "per_device_eval_batch_size": args.batch_size,
         "gradient_accumulation_steps": args.grad_accum,
         "learning_rate": args.lr,
         "lr_scheduler_type": "cosine",
