@@ -19,12 +19,13 @@ def build_graph(
     max_steps: int = 8,
     arxiv_search: Callable = search_arxiv,
     web_search: Callable = search_web,
+    strict: bool = False,
 ):
     graph = StateGraph(CrewState)
     graph.add_node("supervisor", make_supervisor(llm, max_steps))
     graph.add_node("researcher", make_researcher(llm, arxiv_search, web_search))
     graph.add_node("analyst", make_analyst(llm))
-    graph.add_node("writer", make_writer(llm))
+    graph.add_node("writer", make_writer(llm, strict))
 
     graph.add_edge(START, "supervisor")
     graph.add_conditional_edges(
@@ -41,7 +42,7 @@ def stream_crew(
     question: str, llm: BaseChatModel, settings: Settings, **tools: Callable
 ) -> Iterator[tuple[str, dict]]:
     """Yield (node_name, state_update) as each agent finishes. Used by the CLI and the web UI."""
-    app = build_graph(llm, settings.max_steps, **tools)
+    app = build_graph(llm, settings.max_steps, strict=settings.strict_evidence, **tools)
     config = {"recursion_limit": settings.max_steps * 2 + 6}
     for event in app.stream({"question": question, "steps": 0, "log": []}, config, stream_mode="updates"):
         yield from event.items()

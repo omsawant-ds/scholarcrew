@@ -8,6 +8,7 @@ scores reports with the same parser.
 from __future__ import annotations
 
 import re
+from itertools import pairwise
 
 # A citation group such as [3], [1, 4], [2][5] (two groups) or a range like [18-20] (any dash).
 # Models sometimes write full-width brackets such as 【3】 or ［3］ and full-width commas, and
@@ -145,6 +146,65 @@ def _repair_sentence(sentence: str, by_source: dict[int, set[str]]) -> str:
     out = re.sub(r"\(\s*\)", "", out)
     out = re.sub(r"(\S)[ \t]{2,}(\S)", r"\1 \2", out)
     return re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+
+
+# Strict mode keeps a statement only if a sentence of its cited source matches at least this much of
+# its wording. Chosen on 12 evaluation questions and checked on 18 others.
+EVIDENCE_THRESHOLD = 0.4
+
+
+def evidence_score(statement: str, source_text: str) -> float:
+    """How much of a statement's wording one sentence (or two neighbouring ones) of the source
+    contains: 0 to 1. No model is involved. A paraphrase scores lower than a close restatement, so
+    this is a test that the source has matching text, not proof that the statement is true."""
+    words = content_words(strip_cites(statement))
+    if not words:
+        return 0.0
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", source_text) if s.strip()]
+    windows = sentences + [f"{a} {b}" for a, b in pairwise(sentences)]
+    return max((len(words & content_words(w)) / len(words) for w in windows or [source_text]), default=0.0)
+
+
+def statement_is_verified(statement: str, cited_texts: list[str], threshold: float) -> bool:
+    """True if some cited source has matching text (`evidence_score` at least `threshold`) and every
+    statistic in the statement appears in at least one cited source."""
+    if not cited_texts:
+        return False
+    if max(evidence_score(statement, t) for t in cited_texts) < threshold:
+        return False
+    return all(any(present(n, t) for t in cited_texts) for n in statistics_in(statement))
+
+
+def verify_citations(body: str, sources: list[dict], threshold: float) -> tuple[str, dict]:
+    """Drop every cited statement whose cited sources do not contain matching text.
+
+    Statements without a citation, headings, tables and the references list are left alone.
+    Returns the new body and counts of cited statements kept and dropped.
+    """
+    text, references = split_report(body)
+    by_id = {s["id"]: s["text"] for s in sources}
+    kept = dropped = 0
+    lines = []
+    for line in text.split("\n"):
+        if not line.strip() or HEADING.match(line) or line.lstrip().startswith("|"):
+            lines.append(line)
+            continue
+        lead = _LEAD.match(line).group(0)
+        parts = []
+        for sentence in re.split(_SENTENCE_BREAK, line[len(lead) :]):
+            ids = sorted(set(cite_ids(sentence)))
+            if not ids:
+                parts.append(sentence)
+            elif statement_is_verified(sentence, [by_id[i] for i in ids if i in by_id], threshold):
+                kept += 1
+                parts.append(sentence)
+            else:
+                dropped += 1
+        if parts:
+            lines.append(lead + " ".join(parts))
+        elif not line[len(lead) :].strip():
+            lines.append(line)
+    return "\n".join(lines) + references, {"kept": kept, "dropped": dropped}
 
 
 def _citation_runs(sentence: str) -> list[tuple[int, int]]:

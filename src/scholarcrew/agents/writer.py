@@ -6,7 +6,13 @@ from collections.abc import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from ..grounding import linewise_citations, normalize_citations, repair_citations
+from ..grounding import (
+    EVIDENCE_THRESHOLD,
+    linewise_citations,
+    normalize_citations,
+    repair_citations,
+    verify_citations,
+)
 from ..state import CrewState
 from .common import ask
 
@@ -42,7 +48,7 @@ def render_references(sources: list[dict]) -> str:
     return "## References\n\n" + "\n".join(lines)
 
 
-def make_writer(llm: BaseChatModel) -> Callable[[CrewState], dict]:
+def make_writer(llm: BaseChatModel, strict: bool = False) -> Callable[[CrewState], dict]:
     def writer(state: CrewState) -> dict:
         sources = state.get("sources", [])
         notes = state.get("notes", "")
@@ -53,7 +59,18 @@ def make_writer(llm: BaseChatModel) -> Callable[[CrewState], dict]:
         # Keep each statement's citations on that statement (one set, at its end), then point them
         # at the source whose text actually matches it. Models often cite [1] for facts from elsewhere.
         body = repair_citations(linewise_citations(body), sources)
+        update: dict = {}
+        log = "writer: report drafted"
+        if strict:
+            strict_body, counts = verify_citations(body, sources, EVIDENCE_THRESHOLD)
+            if counts["kept"]:
+                body = strict_body
+                total = counts["kept"] + counts["dropped"]
+                log = f"writer: strict mode kept {counts['kept']} of {total} cited statements"
+            else:  # nothing matched, so a strict report would be empty: show the report as written
+                log = "writer: strict mode found no matching statements, showing the full report"
+            update["evidence"] = counts
         report = f"{body}\n\n{render_references(sources)}\n"
-        return {"report": report, "log": ["writer: report drafted"]}
+        return {"report": report, "log": [log], **update}
 
     return writer

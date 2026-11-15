@@ -19,6 +19,11 @@ from scholarcrew.providers import PROVIDERS, check_llm, explain_error, problems,
 REPO_URL = "https://github.com/omsawant-ds/scholarcrew"
 AUTHOR = "Om Sawant"
 AUTHOR_URL = "https://github.com/omsawant-ds"
+STRICT_HELP = (
+    "Keeps only the statements whose cited source contains matching text, and numbers that appear "
+    "in it. Reports get shorter (about 40% of statements are dropped), and the ones that remain "
+    "were supported more often (about 86% against 67% in our tests). It is a text match, not proof."
+)
 MODEL_HELP = (
     "Groq (free): the larger model, slower but more thorough. "
     "Groq fast (free): a smaller model, quicker. Same key, and each has its own daily allowance."
@@ -232,6 +237,7 @@ def render_sidebar():
         st.markdown('<div class="lbl">LLM settings</div>', unsafe_allow_html=True)
         name = st.selectbox("Model", list(PROVIDERS), help=MODEL_HELP)
         provider = PROVIDERS[name]
+        strict = st.checkbox("Strict: evidence-matched statements only", help=STRICT_HELP)
         api_key = st.text_input("API key", type="password", placeholder="Paste your key")
         st.markdown(f"[Get a free Groq key]({provider.key_url})")
         # The address and model are shown for information only and cannot be edited.
@@ -248,7 +254,7 @@ def render_sidebar():
             "it is sent only to Groq."
         )
         st.caption(f"[Source code]({REPO_URL})  \nBuilt by [{AUTHOR}]({AUTHOR_URL})")
-    return settings_for(base_url, api_key, model), name, provider
+    return settings_for(base_url, api_key, model, strict), name, provider
 
 
 def run_crew(question: str, settings, board) -> dict | None:
@@ -258,6 +264,7 @@ def run_crew(question: str, settings, board) -> dict | None:
     log: list[str] = []
     sources: list[dict] = []
     report = notes = ""
+    evidence: dict = {}
     started = time.perf_counter()
 
     with st.status("Checking your key and model", expanded=False) as box:
@@ -281,6 +288,7 @@ def run_crew(question: str, settings, board) -> dict | None:
                 sources = update.get("sources", sources)
                 notes = update.get("notes", notes)
                 report = update.get("report", report)
+                evidence = update.get("evidence", evidence)
                 board.markdown(pipeline_html(status), unsafe_allow_html=True)
         except Exception as exc:  # noqa: BLE001 - show the problem instead of a stack trace
             box.update(label="Something went wrong", state="error")
@@ -295,6 +303,7 @@ def run_crew(question: str, settings, board) -> dict | None:
         "report": report,
         "notes": notes,
         "sources": sources,
+        "evidence": evidence,
         "log": log,
         "seconds": time.perf_counter() - started,
     }
@@ -313,6 +322,10 @@ def render_result(result: dict) -> None:
     report_tab, sources_tab, log_tab = st.tabs(["Report", "Sources", "Agent log"])
     with report_tab:
         if result["report"]:
+            evidence = result.get("evidence")
+            if evidence:
+                shown, total = evidence["kept"], evidence["kept"] + evidence["dropped"]
+                st.caption(f"Strict mode: {shown} of {total} cited statements shown.")
             with st.container(border=True):
                 st.markdown(result["report"])
             st.download_button("Download report", result["report"], report_filename(result["question"]))

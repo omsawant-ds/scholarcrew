@@ -28,6 +28,8 @@ class Settings:
     reports_dir: Path = Path("reports")
     # Extra keys, tried in order when one fails or runs out of quota. Used by the batch scripts.
     api_keys: tuple[str, ...] = ()
+    # Strict mode: the report keeps only cited statements whose cited source has matching text.
+    strict_evidence: bool = False
 
     @property
     def all_keys(self) -> tuple[str, ...]:
