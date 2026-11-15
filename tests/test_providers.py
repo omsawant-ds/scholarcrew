@@ -3,9 +3,10 @@ from scholarcrew.providers import PROVIDERS, check_llm, problems, settings_for
 
 
 def test_presets_are_complete():
-    for name in ("Groq (free)", "Groq fast (free)", "Google Gemini (free)"):
-        p = PROVIDERS[name]
-        assert p.base_url.startswith("https://") and p.default_model and p.key_url.startswith("https://")
+    assert list(PROVIDERS) == ["Groq (free)", "Groq fast (free)"]  # Groq only
+    for p in PROVIDERS.values():
+        assert p.base_url == "https://api.groq.com/openai/v1"
+        assert p.default_model and p.key_url == "https://console.groq.com/keys"
 
 
 def test_problems_flags_missing_inputs():

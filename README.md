@@ -10,7 +10,7 @@ and the web, then writes a report with citations.
 
 ![ScholarCrew web app](docs/screenshot.jpg)
 
-The demo uses a bring-your-own-key model: paste a free Groq or Gemini API key into the sidebar.
+The demo uses a bring-your-own-key model: paste a free Groq API key into the sidebar.
 The key stays in your browser session and is never stored or logged.
 
 ## How it works
@@ -44,7 +44,7 @@ agents:
 - **Failures are visible.** If the model or provider errors, the agents degrade gracefully and log
   a warning instead of failing silently. The web app runs a one-call preflight so a bad key or
   model name gives a clear message before any work starts.
-- **Provider-agnostic.** Any OpenAI-compatible endpoint works: Groq, Gemini, Ollama, vLLM.
+- **Free to run.** It uses Groq's free API, so no card or paid account is needed.
 - **Tested offline.** The test suite uses a scripted fake model and fake search tools, so it needs
   no network and no API key.
 
@@ -84,7 +84,7 @@ that were reported here earlier, and limitations are in [`docs/evaluation.md`](d
 python -m venv .venv
 .venv/Scripts/activate          # Windows; use `source .venv/bin/activate` on macOS/Linux
 pip install -e ".[app]"
-cp .env.example .env            # add a free Groq or Gemini key, or point at Ollama
+cp .env.example .env            # add your free Groq key
 ```
 
 Command line:
@@ -101,8 +101,8 @@ streamlit run streamlit_app.py
 
 ### Configuration
 
-Set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODEL` in `.env`. The file has ready-made presets for
-Groq, Gemini and Ollama. The web app ignores `.env` and asks each visitor for their own key.
+Set `LLM_API_KEY` in `.env` to your Groq key; `.env.example` has the address and model. The web app
+ignores `.env` and asks each visitor for their own key.
 
 ## Deploy your own copy (free)
 

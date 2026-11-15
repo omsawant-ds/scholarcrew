@@ -97,10 +97,11 @@ def test_bad_key_shows_a_clear_error_and_no_report(monkeypatch):
     assert not at.session_state["result"]
 
 
-def test_preset_address_and_model_are_read_only_but_custom_is_editable():
+def test_the_address_and_model_are_read_only_and_only_groq_is_offered():
     at = new_app()
-    assert field(at, "Base URL").disabled and field(at, "Model").disabled  # Groq preset
+    assert field(at, "Base URL").disabled and field(at, "Model").disabled
     assert field(at, "Model").value == "openai/gpt-oss-120b"
+    assert list(at.selectbox[0].options) == ["Groq (free)", "Groq fast (free)"]
 
-    at.selectbox[0].select("Custom (OpenAI-compatible)").run()
-    assert not field(at, "Base URL").disabled and not field(at, "Model").disabled
+    at.selectbox[0].select("Groq fast (free)").run()
+    assert field(at, "Model").value == "openai/gpt-oss-20b" and field(at, "Model").disabled
