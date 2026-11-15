@@ -52,6 +52,23 @@ def problems(settings: Settings) -> str | None:
     return None
 
 
+def explain_error(message: str) -> str:
+    """A plain-language reason and next step for the errors visitors actually hit."""
+    text = message.lower()
+    if "401" in text or "invalid api key" in text or "authentication" in text:
+        return "Groq did not accept this key. Check that you copied all of it, or create a new one."
+    if "429" in text or "rate limit" in text or "tokens per" in text or "requests per" in text:
+        return (
+            "Groq's free limit for this model has been reached. Choose \"Groq fast (free)\", "
+            "or wait a few minutes and try again."
+        )
+    if "404" in text or "model" in text and "not found" in text:
+        return "Groq does not offer this model right now. Choose the other model."
+    if "timeout" in text or "timed out" in text or "connection" in text:
+        return "Could not reach Groq. Check your internet connection and try again."
+    return "Something went wrong while contacting Groq. Try again, or choose the other model."
+
+
 def check_llm(settings: Settings, llm: BaseChatModel | None = None) -> str | None:
     """Make one tiny call so a bad key or model name fails loudly before the agents run.
 

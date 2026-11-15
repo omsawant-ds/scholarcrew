@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import time
 from pathlib import Path
@@ -13,9 +14,15 @@ import streamlit as st
 
 from scholarcrew.graph import stream_crew
 from scholarcrew.llm import make_llm
-from scholarcrew.providers import PROVIDERS, check_llm, problems, settings_for
+from scholarcrew.providers import PROVIDERS, check_llm, explain_error, problems, settings_for
 
 REPO_URL = "https://github.com/omsawant-ds/scholarcrew"
+AUTHOR = "Om Sawant"
+AUTHOR_URL = "https://github.com/omsawant-ds"
+MODEL_HELP = (
+    "Groq (free): the larger model, slower but more thorough. "
+    "Groq fast (free): a smaller model, quicker. Same key, and each has its own daily allowance."
+)
 
 # (short button label, full question)
 EXAMPLES = [
@@ -34,7 +41,7 @@ STEPS = [
 STATE_LABEL = {"idle": "Idle", "active": "Running", "done": "Complete"}
 
 st.set_page_config(
-    page_title="ScholarCrew",
+    page_title="ScholarCrew | Multi-agent research assistant",
     page_icon=":material/travel_explore:",
     layout="centered",
     initial_sidebar_state="expanded",
@@ -64,8 +71,17 @@ st.markdown(
       .block-container { max-width: 880px; padding-top: 3.2rem; padding-bottom: 3rem; }
 
       /* Hide Streamlit chrome that is not useful to visitors */
-      #MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] { display: none; }
+      /* The toolbar also holds the button that reopens the settings panel, so it stays; only its
+         menu items are hidden. */
+      #MainMenu, footer, [data-testid="stDecoration"], [data-testid="stToolbarActions"],
+      [data-testid="stMainMenu"], [data-testid="stAppDeployButton"] { display: none; }
       [data-testid="stHeader"] { background: transparent; }
+      [data-testid="stExpandSidebarButton"] {
+        display: flex; align-items: center; gap: .4rem; margin: .5rem 0 0 .5rem;
+        padding: .45rem .9rem; border-radius: 999px; color: var(--text);
+        background: var(--surface-solid); border: 1px solid var(--border-strong);
+      }
+      [data-testid="stExpandSidebarButton"]::after { content: "Settings"; font-size: .82rem; font-weight: 600; }
 
       /* ---------- Hero ---------- */
       .hero { animation: rise .6s ease both; }
@@ -155,13 +171,25 @@ st.markdown(
       .stMarkdown th, .stMarkdown td { border: 1px solid var(--border-strong) !important; padding: .45rem .8rem; }
 
       section[data-testid="stSidebar"] { border-right: 1px solid var(--border); }
-      .foot { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 3rem; }
+      .by { margin-top: 1rem; color: var(--muted); font-size: .86rem; }
+      .by a { color: #c7d2fe; text-decoration: none; font-weight: 600; }
+      .by a:hover { text-decoration: underline; }
+      .foot { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 3rem;
+              padding-top: 1.4rem; border-top: 1px solid var(--border); line-height: 1.7; }
       .foot a { color: var(--muted); }
+      .foot .note { max-width: 40rem; margin: 0 auto .5rem; font-size: .78rem; opacity: .85; }
 
       @media (max-width: 640px) {
-        .pipe { grid-template-columns: 1fr; gap: .6rem; }
-        .step:not(:last-child)::after { display: none; }
+        .block-container { padding-top: 4.2rem; }
         .hero h1 { font-size: 2.5rem; }
+        /* Keep the three agents on one compact row so the question box is not pushed off screen. */
+        .pipe { gap: .5rem; margin-top: 1.2rem; }
+        .step { padding: .65rem .6rem; }
+        .step:not(:last-child)::after { display: none; }
+        .step .d { display: none; }
+        .step .st { font-size: 0; gap: 0; }
+        .step .t { font-size: .88rem; margin-top: .35rem; }
+        .bar { margin-bottom: 1.2rem; }
       }
     </style>
     """,
@@ -184,6 +212,12 @@ def pipeline_html(status: dict[str, str]) -> str:
     )
 
 
+def report_filename(question: str) -> str:
+    """A readable file name from the question, such as scholarcrew-how-does-lora-compare.md."""
+    words = re.sub(r"[^a-z0-9]+", "-", question.lower()).strip("-")[:48].strip("-")
+    return f"scholarcrew-{words}.md" if words else "scholarcrew-report.md"
+
+
 def queue_run() -> None:
     st.session_state.run_requested = True
 
@@ -196,7 +230,7 @@ def use_example(text: str) -> None:
 def render_sidebar():
     with st.sidebar:
         st.markdown('<div class="lbl">LLM settings</div>', unsafe_allow_html=True)
-        name = st.selectbox("Provider", list(PROVIDERS))
+        name = st.selectbox("Model", list(PROVIDERS), help=MODEL_HELP)
         provider = PROVIDERS[name]
         api_key = st.text_input("API key", type="password", placeholder="Paste your key")
         st.markdown(f"[Get a free Groq key]({provider.key_url})")
@@ -211,9 +245,9 @@ def render_sidebar():
         st.divider()
         st.caption(
             "Your key lives only in this browser session. It is never saved or logged, and "
-            "it is sent only to the provider you picked."
+            "it is sent only to Groq."
         )
-        st.caption(f"[Source code]({REPO_URL})")
+        st.caption(f"[Source code]({REPO_URL})  \nBuilt by [{AUTHOR}]({AUTHOR_URL})")
     return settings_for(base_url, api_key, model), name, provider
 
 
@@ -230,7 +264,8 @@ def run_crew(question: str, settings, board) -> dict | None:
         error = check_llm(settings)
         if error:
             box.update(label="Could not reach the model", state="error")
-            st.error(error)
+            st.error(explain_error(error))
+            st.caption(error)
             return None
 
         box.update(label="Agents are working", expanded=True)
@@ -249,7 +284,9 @@ def run_crew(question: str, settings, board) -> dict | None:
                 board.markdown(pipeline_html(status), unsafe_allow_html=True)
         except Exception as exc:  # noqa: BLE001 - show the problem instead of a stack trace
             box.update(label="Something went wrong", state="error")
-            st.error(f"{type(exc).__name__}: {str(exc).replace(settings.api_key, '***')[:300]}")
+            detail = f"{type(exc).__name__}: {str(exc).replace(settings.api_key, '***')[:300]}"
+            st.error(explain_error(detail))
+            st.caption(detail)
             return None
         box.update(label="Done", state="complete", expanded=False)
 
@@ -278,7 +315,7 @@ def render_result(result: dict) -> None:
         if result["report"]:
             with st.container(border=True):
                 st.markdown(result["report"])
-            st.download_button("Download report", result["report"], "report.md")
+            st.download_button("Download report", result["report"], report_filename(result["question"]))
         else:
             st.warning("No report was produced. Try rephrasing the question.")
     with sources_tab:
@@ -305,7 +342,8 @@ st.markdown(
     "<p>A supervisor coordinates researcher, analyst and writer agents to answer your question "
     "from arXiv and the web, with citations.</p>"
     '<div class="chips"><span>arXiv</span><span>Web search</span><span>LangGraph</span>'
-    "<span>Cited reports</span><span>Bring your own key</span></div></div>",
+    "<span>Cited reports</span><span>Bring your own key</span></div>"
+    f'<div class="by">Built by <a href="{AUTHOR_URL}" target="_blank">{AUTHOR}</a></div></div>',
     unsafe_allow_html=True,
 )
 
@@ -341,7 +379,8 @@ if not settings.api_key:
     st.markdown(
         '<div class="guide"><div class="gt">Get started</div><ol>'
         f"<li>Create a free API key at {key_link}.</li>"
-        "<li>Paste it into the API key field in the sidebar (top left arrow if collapsed).</li>"
+        "<li>Paste it into the API key field in the settings panel (tap Settings at the top left "
+        "if it is closed).</li>"
         "<li>Ask a question or pick an example above.</li></ol></div>",
         unsafe_allow_html=True,
     )
@@ -363,6 +402,9 @@ if result:
     render_result(result)
 
 st.markdown(
-    f'<div class="foot">Open source &middot; <a href="{REPO_URL}">GitHub</a></div>',
+    '<div class="foot"><div class="note">Reports are written by AI from arXiv abstracts and web '
+    "snippets, not full papers. Check the cited sources before relying on a claim.</div>"
+    f'Built by <a href="{AUTHOR_URL}">{AUTHOR}</a> &middot; Open source &middot; '
+    f'<a href="{REPO_URL}">GitHub</a></div>',
     unsafe_allow_html=True,
 )
