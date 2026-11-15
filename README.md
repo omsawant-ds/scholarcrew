@@ -1,19 +1,19 @@
 # ScholarCrew
 
-A multi-agent research assistant. Ask a question and a team of AI agents researches it on arXiv
-and the web, then writes a report with citations.
+A multi-agent research assistant. A supervisor coordinates researcher, analyst and writer agents
+to answer a question from arXiv and the web with a cited report.
 
 [![CI](https://github.com/omsawant-ds/scholarcrew/actions/workflows/ci.yml/badge.svg)](https://github.com/omsawant-ds/scholarcrew/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**[Live demo](https://scholarcrew.streamlit.app)** &middot; **[Sample report](docs/sample-report.md)**
+**[Live demo](https://scholarcrew.streamlit.app)** &middot; **[Sample report](docs/sample-report.md)** &middot; **[Evaluation](docs/evaluation.md)**
 
 ![ScholarCrew web app](docs/screenshot.jpg)
 
-The demo uses a bring-your-own-key model: paste a free Groq API key into the sidebar.
-The key stays in your browser session and is never stored or logged.
+The demo is bring-your-own-key: paste a free [Groq](https://console.groq.com/keys) key. It is kept
+in the browser session and never stored or logged.
 
-## How it works
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -27,124 +27,54 @@ flowchart LR
     S --> O([Report])
 ```
 
-A [LangGraph](https://github.com/langchain-ai/langgraph) supervisor routes work between three
-agents:
+Built on [LangGraph](https://github.com/langchain-ai/langgraph).
 
-- **Researcher** plans search queries, then gathers papers from arXiv and pages from the web.
-- **Analyst** extracts the key findings, compares sources, and flags weak evidence.
-- **Writer** drafts the final report from the analyst's notes.
-
-### Design decisions
-
-- **Routing is validated, not trusted.** Free and small models often return malformed JSON. The
-  supervisor checks every routing decision, ignores ones that repeat finished work, and falls back
-  to a fixed researcher, analyst, writer order. A step cap guarantees the run always ends.
-- **Citations cannot be invented.** The reference list is built from the sources that were actually
-  retrieved, not written by the model.
-- **Failures are visible.** If the model or provider errors, the agents degrade gracefully and log
-  a warning instead of failing silently. The web app runs a one-call preflight so a bad key or
-  model name gives a clear message before any work starts.
-- **Free to run.** It uses Groq's free API, so no card or paid account is needed.
-- **Tested offline.** The test suite uses a scripted fake model and fake search tools, so it needs
-  no network and no API key.
-
-## Sample output
-
-[`docs/sample-report.md`](docs/sample-report.md) is a real, unedited report for the question
-*"What are the main techniques for evaluating LLM agents?"* It cites 16 sources.
+- **Validated routing.** The supervisor checks every routing decision and falls back to a fixed
+  order on malformed output. A step cap guarantees termination.
+- **Citations from retrieved sources only.** The reference list is built from the retrieved
+  sources, not written by the model. Each cited statement is re-pointed to the source that best
+  matches it.
+- **Visible failures.** Model errors are logged, and the app checks the key and model before
+  starting.
+- **Offline tests.** A scripted fake model and fake search tools; no network or key needed.
 
 ## Evaluation
 
-An automated pipeline scores every report on faithfulness, numeric grounding, citation validity
-and coverage, relevance and structure, using a separate judge model.
+An automated pipeline scores reports on faithfulness, numeric grounding, citation validity and
+coverage, relevance and structure, with a separate judge model. It was used to compare writers
+on 30 held-out questions (2 samples each, judge `qwen3.8-27b`):
+
+| Writer | Faithfulness | Faithfulness, citations repaired | Citation coverage |
+|---|---|---|---|
+| Copy the notes (no model) | 84% | 81% | 49% |
+| Qwen3-4B | 55% | 61% | 47% |
+| Qwen3-4B + LoRA | 48% | 61% | 88% |
+
+Fine-tuning improved citation coverage, not faithfulness. The citation repair applied in the
+app raised both writers to 61%. Limitations (small sample, one judge, repair tuned on the same
+questions) are in [docs/evaluation.md](docs/evaluation.md).
+
+## Run locally
 
 ```bash
-python -m scholarcrew.evaluation --quick
-```
-
-It was used to find and fix a real problem. The first runs showed the agents inventing
-statistics that appeared in none of the retrieved sources. After giving the analyst the full
-abstracts and adding explicit rules about figures, on the same 5 questions with a different
-model judging:
-
-| Metric | Before | After |
-|---|---|---|
-| Faithfulness (cited claims the sources support) | 43% | **71%** |
-| Numeric grounding (statistics found in the cited source) | 0% (n=1) | **89%** (n=3) |
-| Citation coverage | 34% | **45%** |
-
-This is a small sample (5 questions, one run each) and run-to-run noise is large, so treat it as
-a promising result and not a proven one. A second change, a self-check in the writer, was tried
-and dropped because it showed no benefit. Method, per-question results, a correction to numbers
-that were reported here earlier, and limitations are in [`docs/evaluation.md`](docs/evaluation.md).
-
-## Run it locally
-
-```bash
-python -m venv .venv
-.venv/Scripts/activate          # Windows; use `source .venv/bin/activate` on macOS/Linux
 pip install -e ".[app]"
-cp .env.example .env            # add your free Groq key
-```
-
-Command line:
-
-```bash
+cp .env.example .env          # set LLM_API_KEY to your Groq key
 scholarcrew "How do researchers reduce hallucination in RAG systems?"
-```
-
-Web app:
-
-```bash
 streamlit run streamlit_app.py
 ```
 
-### Configuration
+## Deploy
 
-Set `LLM_API_KEY` in `.env` to your Groq key; `.env.example` has the address and model. The web app
-ignores `.env` and asks each visitor for their own key.
-
-## Deploy your own copy (free)
-
-1. Fork this repo and sign in at [share.streamlit.io](https://share.streamlit.io) with GitHub.
-2. Click **Create app**, pick your fork, branch `main`, main file `streamlit_app.py`.
-3. Under **Advanced settings**, choose Python 3.12. No secrets are needed.
-4. Deploy. Dependencies come from `requirements.txt`.
-
-Free apps sleep after a period without traffic and wake when someone visits.
-
-## Project layout
-
-```
-src/scholarcrew/
-  agents/        supervisor, researcher, analyst, writer
-  tools/         arXiv search, web search, report saving
-  evaluation/    scoring pipeline: metrics, judge, runner, question set
-  finetune/      writer fine-tuning: freeze inputs, build and filter data, LoRA training
-  graph.py       LangGraph wiring
-  providers.py   provider presets and key check
-  config.py      settings from environment
-  cli.py         command-line entry point
-streamlit_app.py web app
-notebooks/       Colab notebook that trains the writer on a free GPU
-tests/           offline tests (fake model, fake search)
-docs/            screenshot, sample report, evaluation method and results
-```
+On [share.streamlit.io](https://share.streamlit.io): create an app from your fork, branch `main`,
+file `streamlit_app.py`, Python 3.12. No secrets are needed.
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
 pytest
-ruff check src tests streamlit_app.py
+ruff check .
 ```
-
-## Roadmap
-
-- [x] Multi-agent research system with a web app
-- [x] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
-- [ ] Run the evaluation on all 30 questions with repeated runs, to separate real effects from noise
-- [x] LoRA fine-tuned writer model, compared against the base model and a copy-the-notes baseline with the evaluation pipeline (result: it learned to cite more but was not more faithful; a rule that points each citation at its best-matching source then lifted both writers and brought the tuned one level with the base; see [docs/evaluation.md](docs/evaluation.md))
 
 ## License
 

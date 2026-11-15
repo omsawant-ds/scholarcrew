@@ -1,275 +1,124 @@
 # Evaluation
 
-ScholarCrew ships with an automated evaluation pipeline so changes to prompts, models or agents
-can be measured instead of guessed at.
-
 ```bash
 python -m scholarcrew.evaluation --quick                  # 5 questions
 python -m scholarcrew.evaluation --n 10                   # first 10
 python -m scholarcrew.evaluation --topic RAG              # one topic
-python -m scholarcrew.evaluation --model <other-model>    # compare generators
-python -m scholarcrew.evaluation --rescore eval_results/<run>.json --judge-model <other-model>
-python -m scholarcrew.evaluation --resume eval_results/<run>.json   # re-run only failed questions
-python -m scholarcrew.evaluation --min-faithfulness 0.7   # exit code 1 if the mean is lower
+python -m scholarcrew.evaluation --model <model>          # generator
+python -m scholarcrew.evaluation --judge-model <model>    # judge (default: the generator)
+python -m scholarcrew.evaluation --rescore <run>.json     # re-judge saved reports
+python -m scholarcrew.evaluation --resume <run>.json      # re-run failed questions only
+python -m scholarcrew.evaluation --min-faithfulness 0.7   # exit 1 if the mean is lower
 ```
 
-Each run saves a JSON file (every report, its sources and scores) and a Markdown summary in
-`eval_results/`. `--rescore` re-judges saved reports without regenerating them, so changing the
-judge or a metric costs a fraction of a full run.
-
-## Question set
-
-30 research questions in 12 topics (RAG, agents, fine-tuning, evaluation, safety, inference,
-retrieval, prompting, architecture, multimodal, data, training), in
+Each run saves every report, its sources and scores to `eval_results/` (JSON and Markdown).
+The question set is 30 questions in 12 AI topics:
 [`questions.json`](../src/scholarcrew/evaluation/questions.json).
 
 ## Metrics
 
-All scores are between 0 and 100%. Higher is better.
+Scores are 0 to 100%; higher is better.
 
-| Metric | How it is computed | Needs a model? |
+| Metric | Definition | Judge |
 |---|---|---|
-| **Faithfulness** | Up to 12 cited statements are sampled from the report. A judge model checks each one against the text of the sources it cites. Score = share supported. A report that cites nothing scores 0%. | Yes |
-| **Relevance** | A judge rates 1 to 5 how directly and completely the report answers the question, rescaled to 0 to 100%. | Yes |
-| **Numeric grounding** | Every statistic (a percentage or decimal) in the report must appear in the source it cites. Uncited statistics count as ungrounded. A cheap check for invented figures. | No |
-| **Citation validity** | Share of cited source numbers (`[3]`, `[1, 4]`, `[18-20]`, and full-width `【3】`) that point at a source that was actually retrieved. | No |
-| **Citation coverage** | Share of substantive statements that carry a citation. | No |
-| **Source utilization** | Share of retrieved sources the report cites. | No |
-| **Structure** | Title, at least two sections, a references list, and enough length. | No |
+| Faithfulness | Up to 12 cited statements per report are checked against the excerpt of the source they cite. Share supported. A report with no citations scores 0%. | Yes |
+| Relevance | 1 to 5 rating of how well the report answers the question, rescaled. | Yes |
+| Numeric grounding | Statistics in the report that appear in the source they cite. | No |
+| Citation validity | Citation numbers that point at a retrieved source. | No |
+| Citation coverage | Substantive statements that carry a citation. | No |
+| Source utilization | Retrieved sources the report cites. | No |
+| Structure | Title, at least two sections, references, minimum length. | No |
 
-A judge that cannot answer, or returns something unparseable, produces "no score" and is left out
-of the mean (the table shows `n`, the number of reports each mean covers). It is never counted as
-zero or as a pass.
+A judge failure is "no score": it is excluded from the mean and shown in `n`, never counted as 0
+or as a pass. A question where any model call fails is recorded as failed and excluded. A run
+stops after 3 consecutive failures.
 
-## Results: one change kept, one tried and dropped
+## Prompt changes
 
-The first evaluation runs showed the agents **inventing statistics**. In one report, 8 of 12
-statistics were not in the source they cited, and figures such as "0.71 to 0.84" appeared in no
-retrieved source at all. Two causes were found: the analyst saw only the first 700 characters of
-each abstract, which cuts off the results, and no prompt told the agents to avoid inventing
-numbers. Two changes were then measured:
-
-1. **Improved prompts (kept):** the analyst sees the full abstract (1200 characters), and the
-   analyst and writer prompts forbid figures that are not in the sources.
-2. **Writer self-check (tried and dropped):** after drafting, the writer checked its own draft with
-   the same rules used for scoring. If the draft cited nothing, or stated a figure that is not in
-   its cited source, it got one targeted revision and kept it only if it was better. It was
-   implemented in the first commit of pull request #3 and removed in the same pull request.
-
-Same 5 questions, same generator (`gpt-oss-20b`), same judge (`qwen3.8-27b`, a different model
-family), identical scoring rules. Full tables: [old agents](results/baseline.md),
-[improved prompts](results/improved.md), [prompts + self-check](results/self-check.md).
+Same 5 questions, generator `gpt-oss-20b`, judge `qwen3.8-27b`. Tables:
+[old agents](results/baseline.md), [improved prompts](results/improved.md),
+[prompts + self-check](results/self-check.md).
 
 | Metric | Old agents | Improved prompts | Prompts + self-check (dropped) |
 |---|---|---|---|
-| Faithfulness (judged) | 43% | **71%** | 58% |
+| Faithfulness | 43% | **71%** | 58% |
 | Numeric grounding | 0% (n=1) | **89%** (n=3) | 100% (n=3) |
 | Citation coverage | 34% | **45%** | 49% |
-| Citation validity | 100% | 100% | 100% |
-| Source utilization | 58% | 43% | 67% |
-| Relevance (judged) | 100% | 100% | 100% |
-| Structure | 100% | 100% | 100% |
 | Mean time per report | 49s | 63s | 88s |
 
-**Improved prompts.** Faithfulness rose on 3 of 5 questions by large margins (30% to 73%, 20% to
-75%, 0% to 75%) and fell on the other two (100% to 83%, 67% to 50%). Few reports state any
-statistics, so numeric grounding rests on very small counts (n is the number of reports that
-contained a statistic).
+- **Kept:** the analyst sees the full abstract (1200 characters, was 700) and the prompts forbid
+  figures not in the sources.
+- **Dropped:** a writer self-check showed no gain (faithfulness 58% against 71%), added about 25
+  seconds and a model call.
+- Five questions, one run each. Run-to-run noise is large (one question scored 73% and 25% on
+  identical code); only the old versus improved gap is consistent across questions.
 
-**Writer self-check: not shown to help, so it was dropped.** Faithfulness was lower with it (58%
-against 71%), the difference is within the run-to-run noise described below, and reports took
-about 25 seconds longer. It worked as designed: it cost nothing when a draft was clean, and in one
-live case it removed an unsupported figure. But it adds a model call, and on a free tier the
-per-minute token limit is exactly what makes calls fail, so a feature that adds calls needs a
-measured benefit and this one had none. It can be revisited if a larger test (all 30 questions,
-repeated runs) shows a gain.
+**Correction.** An earlier version of this page reported faithfulness of 22% before and 56% after.
+The scorer did not recognise full-width citation brackets (`【13】`), so cited reports were scored
+as uncited. The scorer and writer were fixed and all numbers re-scored.
 
-**What this does and does not show**
+## Fine-tuned writer
 
-- **Noise is large.** The same code produced a faithfulness of 73% on one question in one run and
-  25% in another, on a report the self-check did not touch. Every comparison here uses one generation
-  per question, so differences of 10 to 20 points between columns should not be trusted. Only
-  the old-agents versus improved-prompts gap, which is larger and consistent across questions, is
-  reasonably convincing.
-- Five questions is a small sample and no significance test was run. A fair test needs all 30
-  questions and repeated runs, which free-tier daily limits make a multi-day job.
-- Relevance scored 100% for every report, so this judge cannot tell the reports apart on that
-  metric.
-- The improved prompts cost more tokens per call and slowed reports by about 14 seconds.
+**Setup.** LoRA (r=16) on Qwen3-4B, 4-bit, one run on a free Kaggle T4: 86 training examples
+written by `gpt-oss-120b` and filtered by rule-based checks, 10 held out, 3 epochs, 107 minutes.
+Held-out loss 0.658, 0.584, 0.572.
 
-### Correction
+**Comparison.** 30 held-out questions, identical frozen sources and notes for every writer, 2
+samples per model, judge `qwen3.8-27b`. Writers: the base model, the tuned model, and a baseline
+that returns the analyst's notes unchanged. The 118 training questions are disjoint from the 30.
 
-An earlier version of this page reported different numbers (faithfulness 22% before and 56%
-after) and said that about 1 report in 5 came back with no citations. Both were wrong. Some
-reports wrote their citations in full-width brackets, `【13】`, and the scorer did not recognize
-them, so those reports were counted as uncited and their figures as unsupported. The scorer now
-accepts these brackets, the writer rewrites them as ordinary `[13]`, and every number above was
-re-scored from the saved reports. The bug was found by tracing a report that scored 100%
-faithful while the scorer flagged 14 of its figures as unsupported.
+| Metric | Copy the notes | Qwen3-4B | Qwen3-4B + LoRA |
+|---|---|---|---|
+| Faithfulness, as written | 84% | 55% | 48% |
+| Faithfulness, citations repaired | 81% | 61% | 61% |
+| Citation coverage | 49% | 47% | 88% |
+| Source utilization (repaired) | 52% | 49% | 56% |
+| Relevance (repaired) | 98% | 92% | 98% |
+| Numeric grounding (repaired) | 70% (n=22) | 83% (n=40) | 94% (n=44) |
 
-## Running on free tiers
+Tuned against base, faithfulness by question: as written 8 better, 2 tied, 20 worse (sign test
+p of about 0.04); repaired 13 better, 2 tied, 15 worse. Full tables:
+[as written](results/writer-comparison.md), [repaired](results/writer-comparison-repaired.md).
 
-Free API tiers cap tokens per minute and per day, and this shaped the design:
+**Findings**
 
-- A question where any model call fails is recorded as **failed** and left out of the averages.
-  Earlier, reports written after a rate-limit error were scored as if the system had worked.
-- A run stops after 3 failures in a row instead of burning the remaining quota.
-- The judge waits and retries when it gets an empty reply, and the app's client waits out
-  provider rate limits.
-- `--resume` finishes a partial run, and refuses to mix different models in one result.
-- A run of about 5 questions costs on the order of 100,000 tokens, so a 200,000-token daily limit
-  fits roughly one or two runs per model per day. Use different models for generating and judging
-  to spread the load across separate quotas.
+- Tuning raised citation coverage (47% to 88%) and not faithfulness.
+- On 242 judged claims from 22 reports, claims citing only source [1] were supported 31% to 32%
+  of the time, against 62% to 74% for all others. Claims describing what the sources do not say
+  were supported 29% to 40%.
+- `repair_citations` points each cited statement at the source whose title and excerpt share the
+  most words with it. It adds no model call, leaves statements that match no source unchanged,
+  and does not alter wording, headings, tables or references. Faithfulness rose from 55% to 61%
+  (base) and 48% to 61% (tuned). On 12 questions a second judge (`gpt-oss-120b`) showed the same
+  direction: 60% to 71% and 49% to 64% of claims supported.
+- Copying the notes remains the most faithful writer. The repair is used in the app; the tuned
+  model is not.
 
-## Comparing a fine-tuned writer
+**Limitations**
 
-The writer was fine-tuned with LoRA (see `src/scholarcrew/finetune/`). To keep that
-comparison honest, it is set up with these safeguards:
+- 30 questions and 2 samples; no confidence intervals. The repaired tuned and base writers tie.
+- One judge for the full run, from the same model family as the student. The second judge covers
+  12 questions. The judge was not validated against human labels.
+- The repair was designed after seeing these results, on these questions, and matches against the
+  same 1200-character excerpt the judge reads. It needs a fresh held-out set.
+- Faithfulness is support in retrieved abstracts and snippets, not factual accuracy.
+- Training examples were filtered with checks shared with the metrics, so the coverage gain is
+  expected. The teacher prompt required a citation on every sentence. One training run, one
+  setting.
 
-- **Same input for every writer.** Sources and notes are frozen once per question, so only the
-  writer changes.
-- **A do-nothing baseline.** `copy_notes_writer` returns the analyst's notes as the report. A tuned
-  model has to beat this to show it learned something.
-- **Held-out questions.** The 118 training questions are checked to be disjoint from the 30
-  evaluation questions.
-- **Do not trust the metric the model was trained on.** The training data is filtered with the
-  rule-based grounding checks, so a tuned model can score well on them simply by learning to
-  satisfy them. The headline number is therefore the faithfulness judged by a different model
-  family. The rule-based metrics are reported alongside it.
-- **Small data, modest expectations.** About a hundred examples teach format and discipline, not
-  new knowledge, and the tuned model cannot exceed its teacher.
-- **Licenses.** Check the base model's license before publishing any weights.
-
-The comparison is two commands. Generation needs a GPU (`notebooks/compare_writers_kaggle.ipynb`);
-scoring runs anywhere and keeps going across days if a free quota runs out:
+**Reproduce.** Generation needs a GPU ([`compare_writers_kaggle.ipynb`](../notebooks/compare_writers_kaggle.ipynb));
+scoring runs anywhere and resumes after a quota stop.
 
 ```bash
 python -m scholarcrew.finetune.compare generate --adapter outputs/writer-lora
 python -m scholarcrew.finetune.compare score --generations generations.jsonl --judge-model qwen/qwen3.8-27b
+python -m scholarcrew.finetune.compare score --repair --generations generations.jsonl --judge-model qwen/qwen3.8-27b --out-dir data/compare-repaired
 ```
-
-## Results: the tuned writer
-
-A LoRA adapter was trained on top of Qwen3-4B (a 4-bit model on a free Kaggle T4) using 86 checked
-examples, with 10 more held out to watch for overfitting and 7 skipped for being too long. Training
-ran 18 steps over 3 epochs in about 107 minutes. The held-out loss fell every epoch (0.658, 0.584,
-0.572), so it learned the examples without overfitting them.
-
-Then three writers wrote reports for the 30 evaluation questions from identical frozen sources and
-notes: the **base** Qwen3-4B, the **tuned** model (same 4-bit weights with the adapter switched on),
-and the **copy-the-notes** baseline. The two models each wrote 2 reports per question (120 in all),
-sampled with the same settings and seeds. Every report was scored by `qwen/qwen3.8-27b`. Full table:
-[writer-comparison](results/writer-comparison.md).
-
-| Metric | Copy the notes | Base | Tuned |
-|---|---|---|---|
-| Faithfulness (judged) | **84%** | 55% | 48% |
-| Citation coverage | 49% | 47% | **88%** |
-| Source utilization | 52% | 43% | 52% |
-| Relevance (judged) | 98% | 92% | 95% |
-| Numeric grounding | 71% (n=22) | 75% (n=40) | 76% (n=44) |
-| Citation validity | 97% | 100% | 100% |
-| Structure | 82% | 100% | 100% |
-
-Question by question, tuned against base:
-
-| Metric | Tuned better | Tied | Tuned worse | Mean difference |
-|---|---|---|---|---|
-| Faithfulness | 8 | 2 | 20 | -7.2 points |
-| Relevance | 6 | 20 | 4 | +2.1 points |
-| Citation coverage | 28 | 1 | 1 | +40.6 points |
-
-**What this shows**
-
-- **The tuned model learned to cite.** The share of statements carrying a citation almost doubled
-  (47% to 88%), and it used more of the retrieved sources (43% to 52%). This is what the training
-  data was filtered for, so it is the expected effect. It is not independent evidence of better writing.
-- **It did not become more faithful.** Faithfulness, the independently judged number that matters,
-  was lower (48% against 55%), and worse on 20 of the 30 questions. A sign test on those counts gives
-  p of about 0.04, so there is some evidence the tuned model is worse, not strong evidence.
-- **Copying the notes beat both models on faithfulness (84%).** For this task, handing the analyst's
-  notes through unchanged is more faithful than either 4B writer. The models won only on
-  readability measures (title, sections, length) and, for the tuned one, on citation coverage.
-- **Numbers and relevance did not separate the writers.** Numeric grounding differs by one point
-  with small counts, and 20 of 30 questions tied on relevance.
-
-**Caveats**
-
-- The tuned reports contain more cited statements to check (11.2 per report against 9.1), so they
-  have more chances to contain an unsupported one. That may explain part of the faithfulness gap, but
-  it does not remove it: citing more and supporting less is not an improvement.
-- The judge, `qwen3.8-27b`, is from the same model family as the writer being tested. The earlier
-  results on this page used a judge from a different family. A same-family judge may rate Qwen
-  output more kindly, which would make both model columns look better than they are.
-- 30 questions and 2 samples per question is small. Differences of a few points are noise, which is
-  why the question-by-question counts are shown.
-- The adapter was trained on reports written by a larger model (`gpt-oss-120b`) and filtered by the
-  same rule-based checks used to score. A 4B student is not expected to exceed its teacher.
-- One run of one training recipe. Different settings, a larger model, or more data could behave
-  differently; this result does not show that fine-tuning cannot help.
-
-**Conclusion.** With about 90 examples, fine-tuning taught the writer a surface habit (cite every
-statement) but did not make its claims better supported. The honest outcome is no gain on
-faithfulness, which is why this is reported and the tuned writer is not used in the app.
-
-### Why it was less faithful, and a fix that needs no training
-
-To find out why, a judge ruled on every claim in 22 reports (242 claims). Both writers often cite
-source [1] for a fact that came from another source: claims citing only [1] were supported about
-a third of the time (31% for the tuned writer, 38% for the base), against 62% to 74% for all other
-claims. Claims that comment on what the sources do not say (a fifth of all claims) were supported
-only 29% to 40% of the time, because commentary cannot be found in any source. The tuned writer
-also wrote more, and more specific, claims, which gave it more chances to cite loosely.
-
-`repair_citations` (in `grounding.py`, applied by the writer agent) fixes the first problem with a
-rule and no model call: for every cited statement it finds the source whose title and excerpt
-share the most of its words, adds that source, and drops a citation that matches clearly less. A
-statement that matches no source well is left alone, so it never invents a citation, and the
-wording, headings, tables and reference list are untouched.
-
-On the 12-question check, judged by `gpt-oss-120b` (a different model family) on the same reports
-before and after, the share of supported claims rose from 60% to 71% for the base writer and
-from 49% to 64% for the tuned one. Then all 150 reports were re-scored with the repair, using the
-same judge as the table above:
-
-| Metric | Copy the notes | Base | Tuned |
-|---|---|---|---|
-| Faithfulness (judged) | **81%** (was 84%) | 61% (was 55%) | 61% (was 48%) |
-| Citation coverage | 49% | 47% | **88%** |
-| Source utilization | 52% | 49% (was 43%) | **56%** (was 52%) |
-| Relevance (judged) | 98% | 92% | **98%** (was 95%) |
-| Numeric grounding | 70% (n=22) | 83% (n=40) | **94%** (n=44) |
-
-Full table: [writer-comparison-repaired](results/writer-comparison-repaired.md). Question by
-question, tuned against base on faithfulness: better on 13, tied on 2, worse on 15, a mean
-difference of 0.0 points. On relevance the tuned writer was better on 9 and never worse.
-
-- **The repair helps, and it helps the weaker citer more.** Faithfulness rose 6 points for the
-  base writer and 13 for the tuned one, which closed the gap between them completely.
-- **The tuned writer now matches the base on faithfulness and is ahead on everything else**: it
-  cites far more of what it writes (88% against 47%), uses more of the sources, and its figures
-  match their cited source more often. This is the first measured benefit of the training, but a
-  tie on the main metric is not a win on it.
-- **Copying the notes is still the most faithful (81%).** It scored 3 points lower with the repair,
-  within the noise, because its citations were already well placed.
-- **Limits.** The repair picks sources by shared words with the same excerpt the judge reads, so
-  part of the gain is citations pointing where a judge will look. That is also where a reader would
-  look, but it is not proof that more claims are true. It was designed after seeing the first
-  results, on the same 30 questions. The per-question counts are balanced, so the gain is an average
-  over a few large improvements, not a small gain on every report. One judge scored the full run; the
-  cross-check with a second judge covers 12 questions only.
 
 ## Limitations
 
-- **Judge bias.** By default the judge is the same model as the generator, which tends to rate
-  its own family generously. Use `--judge-model` to judge with a different model, as the results
-  above do.
-- **Sources are abstracts and snippets.** The agents read arXiv abstracts and search snippets, not
-  full papers. Faithfulness measures support in that retrieved text, not in the whole paper.
-- **Numeric grounding is a proxy.** It checks that a number appears in the cited text. It can flag
-  a legitimate unit conversion (0.84 vs 84%) and cannot tell whether a matching number is used
-  correctly.
-- **Small samples.** Free API tiers limit how many questions a run can cover. Treat differences of
-  a few points between runs as noise.
-- **The scorer is code, and code has bugs.** The citation-bracket bug above is an example. When a
-  score looks surprising, inspect the individual claims before trusting it.
+- The judge is an LLM; use `--judge-model` with a different family from the generator.
+- Sources are abstracts and snippets, not full papers.
+- Numeric grounding is a proxy: it checks that a number appears in the cited text, not that it is
+  used correctly.
+- Free tiers cap daily tokens, which limits sample size.
