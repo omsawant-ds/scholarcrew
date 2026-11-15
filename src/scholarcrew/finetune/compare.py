@@ -271,7 +271,7 @@ def to_markdown(result: dict) -> str:
 
 def score(args: argparse.Namespace) -> int:
     from ..config import Settings
-    from ..llm import make_llm
+    from ..llm import make_llm_pool
     from ..providers import check_llm
 
     frozen = load_frozen(Path(args.frozen))
@@ -287,11 +287,11 @@ def score(args: argparse.Namespace) -> int:
 
     base = Settings.from_env()
     settings = replace(base, model=args.judge_model or base.model)
-    error = check_llm(settings)
+    judge = make_llm_pool(settings, temperature=0.0)  # moves to the next key when one is spent
+    error = check_llm(settings, judge)
     if error:
         print(f"Cannot reach the judge ({settings.model}): {error}", file=sys.stderr)
         return 2
-    judge = make_llm(settings, temperature=0.0)
 
     def progress(i: int, total: int, row: dict, status: str) -> None:
         print(f"[{i}/{total}] {row['id']} {row['variant']} sample {row['sample']}: {status}",
