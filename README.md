@@ -144,7 +144,7 @@ ruff check src tests streamlit_app.py
 - [x] Multi-agent research system with a web app
 - [x] Automated evaluation pipeline: scored test questions for faithfulness, citation accuracy and relevance
 - [ ] Run the evaluation on all 30 questions with repeated runs, to separate real effects from noise
-- [ ] LoRA fine-tuned writer model, compared against the base model with the evaluation pipeline (in progress: data pipeline and training script built; training and comparison to come)
+- [x] LoRA fine-tuned writer model, compared against the base model and a copy-the-notes baseline with the evaluation pipeline (result: it learned to cite more but was not more faithful; see [docs/evaluation.md](docs/evaluation.md))
 
 ## License
 

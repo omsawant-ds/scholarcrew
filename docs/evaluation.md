@@ -123,7 +123,7 @@ Free API tiers cap tokens per minute and per day, and this shaped the design:
 
 ## Comparing a fine-tuned writer
 
-The writer is being fine-tuned with LoRA (see `src/scholarcrew/finetune/`). To keep that
+The writer was fine-tuned with LoRA (see `src/scholarcrew/finetune/`). To keep that
 comparison honest, it is set up with these safeguards:
 
 - **Same input for every writer.** Sources and notes are frozen once per question, so only the
@@ -139,6 +139,78 @@ comparison honest, it is set up with these safeguards:
 - **Small data, modest expectations.** About a hundred examples teach format and discipline, not
   new knowledge, and the tuned model cannot exceed its teacher.
 - **Licenses.** Check the base model's license before publishing any weights.
+
+The comparison is two commands. Generation needs a GPU (`notebooks/compare_writers_kaggle.ipynb`);
+scoring runs anywhere and keeps going across days if a free quota runs out:
+
+```bash
+python -m scholarcrew.finetune.compare generate --adapter outputs/writer-lora
+python -m scholarcrew.finetune.compare score --generations generations.jsonl --judge-model qwen/qwen3.8-27b
+```
+
+## Results: the tuned writer
+
+A LoRA adapter was trained on top of Qwen3-4B (a 4-bit model on a free Kaggle T4) using 86 checked
+examples, with 10 more held out to watch for overfitting and 7 skipped for being too long. Training
+ran 18 steps over 3 epochs in about 107 minutes. The held-out loss fell every epoch (0.658, 0.584,
+0.572), so it learned the examples without overfitting them.
+
+Then three writers wrote reports for the 30 evaluation questions from identical frozen sources and
+notes: the **base** Qwen3-4B, the **tuned** model (same 4-bit weights with the adapter switched on),
+and the **copy-the-notes** baseline. The two models each wrote 2 reports per question (120 in all),
+sampled with the same settings and seeds. Every report was scored by `qwen/qwen3.8-27b`. Full table:
+[writer-comparison](results/writer-comparison.md).
+
+| Metric | Copy the notes | Base | Tuned |
+|---|---|---|---|
+| Faithfulness (judged) | **84%** | 55% | 48% |
+| Citation coverage | 49% | 47% | **88%** |
+| Source utilization | 52% | 43% | 52% |
+| Relevance (judged) | 98% | 92% | 95% |
+| Numeric grounding | 71% (n=22) | 75% (n=40) | 76% (n=44) |
+| Citation validity | 97% | 100% | 100% |
+| Structure | 82% | 100% | 100% |
+
+Question by question, tuned against base:
+
+| Metric | Tuned better | Tied | Tuned worse | Mean difference |
+|---|---|---|---|---|
+| Faithfulness | 8 | 2 | 20 | -7.2 points |
+| Relevance | 6 | 20 | 4 | +2.1 points |
+| Citation coverage | 28 | 1 | 1 | +40.6 points |
+
+**What this shows**
+
+- **The tuned model learned to cite.** The share of statements carrying a citation almost doubled
+  (47% to 88%), and it used more of the retrieved sources (43% to 52%). This is what the training
+  data was filtered for, so it is the expected effect. It is not independent evidence of better writing.
+- **It did not become more faithful.** Faithfulness, the independently judged number that matters,
+  was lower (48% against 55%), and worse on 20 of the 30 questions. A sign test on those counts gives
+  p of about 0.04, so there is some evidence the tuned model is worse, not strong evidence.
+- **Copying the notes beat both models on faithfulness (84%).** For this task, handing the analyst's
+  notes through unchanged is more faithful than either 4B writer. The models won only on
+  readability measures (title, sections, length) and, for the tuned one, on citation coverage.
+- **Numbers and relevance did not separate the writers.** Numeric grounding differs by one point
+  with small counts, and 20 of 30 questions tied on relevance.
+
+**Caveats**
+
+- The tuned reports contain more cited statements to check (11.2 per report against 9.1), so they
+  have more chances to contain an unsupported one. That may explain part of the faithfulness gap, but
+  it does not remove it: citing more and supporting less is not an improvement.
+- The judge, `qwen3.8-27b`, is from the same model family as the writer being tested. The earlier
+  results on this page used a judge from a different family. A same-family judge may rate Qwen
+  output more kindly, which would make both model columns look better than they are.
+- 30 questions and 2 samples per question is small. Differences of a few points are noise, which is
+  why the question-by-question counts are shown.
+- The adapter was trained on reports written by a larger model (`gpt-oss-120b`) and filtered by the
+  same rule-based checks used to score. A 4B student is not expected to exceed its teacher.
+- One run of one training recipe. Different settings, a larger model, or more data could behave
+  differently; this result does not show that fine-tuning cannot help.
+
+**Conclusion.** With about 90 examples, fine-tuning taught the writer a surface habit (cite every
+statement) but did not make its claims better supported. The honest outcome is no gain on
+faithfulness, which is why this is reported and the tuned writer is not used in the app.
 
 ## Limitations
 
