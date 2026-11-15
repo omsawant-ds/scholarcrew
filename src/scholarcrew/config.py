@@ -38,9 +38,9 @@ class Settings:
     def from_env(cls) -> Settings:
         _load_dotenv()
         return cls(
-            base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
-            api_key=os.getenv("LLM_API_KEY", "ollama"),
-            model=os.getenv("LLM_MODEL", "llama3.2:3b"),
+            base_url=os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1"),
+            api_key=os.getenv("LLM_API_KEY", ""),
+            model=os.getenv("LLM_MODEL", "openai/gpt-oss-120b"),
             max_steps=int(os.getenv("MAX_STEPS", "8")),
             reports_dir=Path(os.getenv("REPORTS_DIR", "reports")),
             api_keys=tuple(k.strip() for k in os.getenv("LLM_API_KEYS", "").split(",") if k.strip()),

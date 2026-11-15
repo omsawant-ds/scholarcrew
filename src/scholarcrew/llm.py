@@ -1,4 +1,4 @@
-"""LLM factory. Any OpenAI-compatible endpoint works (Groq, Gemini, Ollama, vLLM...)."""
+"""LLM factory for Groq's OpenAI-compatible API."""
 
 from __future__ import annotations
 

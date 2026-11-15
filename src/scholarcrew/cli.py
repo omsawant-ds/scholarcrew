@@ -22,6 +22,10 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
     settings = Settings.from_env()
+    if not settings.all_keys:
+        print("No API key found. Put your Groq key in .env as LLM_API_KEY "
+              "(free at https://console.groq.com/keys).", file=sys.stderr)
+        return 2
     llm = make_llm(settings)
     report = ""
     for node, update in stream_crew(args.question, llm, settings):

@@ -199,16 +199,14 @@ def render_sidebar():
         name = st.selectbox("Provider", list(PROVIDERS))
         provider = PROVIDERS[name]
         api_key = st.text_input("API key", type="password", placeholder="Paste your key")
-        if provider.key_url:
-            st.markdown(f"[Get a free {name.split(' (')[0]} key]({provider.key_url})")
-        # Presets show their address and model for information only. Only "Custom" is editable.
-        fixed = bool(provider.base_url)
-        with st.expander("Advanced", expanded=not fixed):
+        st.markdown(f"[Get a free Groq key]({provider.key_url})")
+        # The address and model are shown for information only and cannot be edited.
+        with st.expander("Advanced", expanded=False):
             base_url = st.text_input(
-                "Base URL", value=provider.base_url, key=f"url-{name}", disabled=fixed
+                "Base URL", value=provider.base_url, key=f"url-{name}", disabled=True
             )
             model = st.text_input(
-                "Model", value=provider.default_model, key=f"model-{name}", disabled=fixed
+                "Model", value=provider.default_model, key=f"model-{name}", disabled=True
             )
         st.divider()
         st.caption(
