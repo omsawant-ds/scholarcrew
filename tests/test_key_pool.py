@@ -31,6 +31,7 @@ class Model:
 
 
 def test_settings_lists_the_main_key_first_without_blanks_or_repeats(monkeypatch):
+    monkeypatch.setattr("scholarcrew.config._load_dotenv", lambda: None)  # never read a real .env
     monkeypatch.setenv("LLM_API_KEY", "main")
     monkeypatch.setenv("LLM_API_KEYS", " second , ,main,third")
     assert Settings.from_env().all_keys == ("main", "second", "third")
