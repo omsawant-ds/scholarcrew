@@ -1,6 +1,3 @@
-> Unedited output of the current pipeline (Groq `gpt-oss-120b`). Citations point to the numbered
-> references at the end; check key claims against them before relying on them.
-
 # State of Quantum Error Correction Below Threshold and Remaining Barriers to Fault‑Tolerant Quantum Computing  
 
 **Summary**  
