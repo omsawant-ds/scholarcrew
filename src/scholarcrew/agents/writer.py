@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from ..grounding import normalize_citations, repair_citations
+from ..grounding import linewise_citations, normalize_citations, repair_citations
 from ..state import CrewState
 from .common import ask
 
@@ -19,6 +19,17 @@ SYSTEM = (
     "it next to the citation it came with. Never add figures, benchmarks or results of your own. "
     "Cite every statement of fact."
 )
+
+
+# Added for the app only. `SYSTEM` above is what the fine-tuning data and the writer comparison
+# used, so it stays as it was and their results remain reproducible.
+LAYOUT = (
+    "\nCitation layout: end every statement with the citation(s) for that statement only, like "
+    "'Statement [2].' Never put a citation in the middle of a sentence, and never join two "
+    "statements that have different sources into one sentence. Refer to sources only through the "
+    "bracket numbers: do not write 'the notes', 'the sources' or 'source 3' in the text."
+)
+APP_SYSTEM = SYSTEM + LAYOUT
 
 
 def writer_input(question: str, notes: str) -> str:
@@ -37,11 +48,11 @@ def make_writer(llm: BaseChatModel) -> Callable[[CrewState], dict]:
         notes = state.get("notes", "")
         question = state["question"]
         # Models sometimes cite as 【3】; rewrite every style as plain [3] so reports look consistent.
-        body = normalize_citations(ask(llm, SYSTEM, writer_input(question, notes))).strip()
+        body = normalize_citations(ask(llm, APP_SYSTEM, writer_input(question, notes))).strip()
         body = body or f"# {question}\n\n{notes}"
-        # Models often cite source [1] for facts that came from another source; point each cited
-        # statement at the source whose text actually matches it.
-        body = repair_citations(body, sources)
+        # Keep each statement's citations on that statement (one set, at its end), then point them
+        # at the source whose text actually matches it. Models often cite [1] for facts from elsewhere.
+        body = repair_citations(linewise_citations(body), sources)
         report = f"{body}\n\n{render_references(sources)}\n"
         return {"report": report, "log": ["writer: report drafted"]}
 

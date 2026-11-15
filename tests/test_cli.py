@@ -19,3 +19,12 @@ def test_defaults_point_at_groq(monkeypatch):
     settings = Settings.from_env()
     assert settings.base_url == "https://api.groq.com/openai/v1"
     assert settings.model == "openai/gpt-oss-120b" and settings.all_keys == ()
+
+
+def test_a_list_of_keys_alone_is_enough(monkeypatch):
+    """Regression: with only LLM_API_KEYS set the main key was empty, so the command line failed."""
+    monkeypatch.setattr("scholarcrew.config._load_dotenv", lambda: None)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    monkeypatch.setenv("LLM_API_KEYS", "first, second")
+    settings = Settings.from_env()
+    assert settings.api_key == "first" and settings.all_keys == ("first", "second")

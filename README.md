@@ -32,8 +32,8 @@ Built on [LangGraph](https://github.com/langchain-ai/langgraph).
 - **Validated routing.** The supervisor checks every routing decision and falls back to a fixed
   order on malformed output. A step cap guarantees termination.
 - **Citations from retrieved sources only.** The reference list is built from the retrieved
-  sources, not written by the model. Each cited statement is re-pointed to the source that best
-  matches it.
+  sources, not written by the model. Each statement carries its own citations, re-pointed to the
+  source that best matches it.
 - **Visible failures.** Model errors are logged, and the app checks the key and model before
   starting.
 - **Offline tests.** A scripted fake model and fake search tools; no network or key needed.

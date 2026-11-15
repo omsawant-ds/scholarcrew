@@ -37,11 +37,12 @@ class Settings:
     @classmethod
     def from_env(cls) -> Settings:
         _load_dotenv()
+        extra = tuple(k.strip() for k in os.getenv("LLM_API_KEYS", "").split(",") if k.strip())
         return cls(
             base_url=os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1"),
-            api_key=os.getenv("LLM_API_KEY", ""),
+            api_key=os.getenv("LLM_API_KEY") or (extra[0] if extra else ""),  # the list alone is enough
             model=os.getenv("LLM_MODEL", "openai/gpt-oss-120b"),
             max_steps=int(os.getenv("MAX_STEPS", "8")),
             reports_dir=Path(os.getenv("REPORTS_DIR", "reports")),
-            api_keys=tuple(k.strip() for k in os.getenv("LLM_API_KEYS", "").split(",") if k.strip()),
+            api_keys=extra,
         )
