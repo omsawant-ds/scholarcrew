@@ -53,10 +53,6 @@ Same 5 questions, generator `gpt-oss-20b`, judge `qwen3.8-27b`. Tables:
 - Five questions, one run each. Run-to-run noise is large (one question scored 73% and 25% on
   identical code); only the old versus improved gap is consistent across questions.
 
-**Correction.** An earlier version of this page reported faithfulness of 22% before and 56% after.
-The scorer did not recognise full-width citation brackets (`【13】`), so cited reports were scored
-as uncited. The scorer and writer were fixed and all numbers re-scored.
-
 ## Fine-tuned writer
 
 **Setup.** LoRA (r=16) on Qwen3-4B, 4-bit, one run on a free Kaggle T4: 86 training examples
