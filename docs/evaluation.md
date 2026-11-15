@@ -106,8 +106,8 @@ p of about 0.04); repaired 13 better, 2 tied, 15 worse. Full tables:
   cannot detect a citation attached to the wrong clause.
 - The numbers above were measured before two later changes: statements that join claims with
   different sources are now left unrepaired, and the app's writer now places each statement's
-  citations at the end of that statement. Neither was re-measured. In an audit of the sample
-  report, 2 of 16 statements still cited a source that does not support them.
+  citations at the end of that statement. Neither was re-measured. In a check of the sample report,
+  12 of 16 statements were fully supported by the source they cite.
 - Faithfulness is support in retrieved abstracts and snippets, not factual accuracy.
 - Training examples were filtered with checks shared with the metrics, so the coverage gain is
   expected. The teacher prompt required a citation on every sentence. One training run, one
