@@ -30,7 +30,7 @@ PROVIDERS: dict[str, Provider] = {
 }
 
 
-def settings_for(base_url: str, api_key: str, model: str) -> Settings:
+def settings_for(base_url: str, api_key: str, model: str, strict: bool = False) -> Settings:
     """Build Settings from user input. The key lives only in this object, never on disk."""
     return Settings(
         base_url=base_url.strip(),
@@ -38,6 +38,7 @@ def settings_for(base_url: str, api_key: str, model: str) -> Settings:
         model=model.strip(),
         max_steps=8,
         reports_dir=Path("reports"),
+        strict_evidence=strict,
     )
 
 

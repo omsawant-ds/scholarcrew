@@ -34,6 +34,7 @@ Built on [LangGraph](https://github.com/langchain-ai/langgraph).
 - **Citations from retrieved sources only.** The reference list is built from the retrieved
   sources, not written by the model. Each statement carries its own citations, re-pointed to the
   source that best matches it.
+- **Optional strict mode.** Keeps only statements whose cited source contains matching text.
 - **Visible failures.** Model errors are logged, and the app checks the key and model before
   starting.
 - **Offline tests.** A scripted fake model and fake search tools; no network or key needed.

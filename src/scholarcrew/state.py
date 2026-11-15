@@ -20,6 +20,7 @@ class CrewState(TypedDict, total=False):
     sources: list[Source]
     notes: str
     report: str
+    evidence: dict  # strict mode: how many cited statements were kept and dropped
     next: str
     steps: int
     # `operator.add` makes LangGraph append log lines from every node instead of overwriting.

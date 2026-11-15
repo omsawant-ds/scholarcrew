@@ -117,6 +117,29 @@ python -m scholarcrew.finetune.compare score --generations generations.jsonl --j
 python -m scholarcrew.finetune.compare score --repair --generations generations.jsonl --judge-model qwen/qwen3.8-27b --out-dir data/compare-repaired
 ```
 
+## Strict mode
+
+Optional: a checkbox in the app, `--strict` on the command line. It keeps only cited statements for
+which a sentence of the cited source contains at least 40% of the statement's key words, and whose
+numbers all appear in the source. It makes no model call.
+
+Measured on the 30 evaluation questions (29 reports with cited statements, 432 statements), with
+the app's writer (`gpt-oss-120b`) and judge `qwen3.8-27b`. The threshold was chosen on 12 of the
+questions; the other 18 give the same result (57% kept, 87% supported at 0.4).
+
+| Threshold | Statements kept | Supported by the judge, among those kept |
+|---|---|---|
+| none | 100% | 67% |
+| 0.3 | 76% | 80% |
+| **0.4 (used)** | **60%** | **86%** |
+| 0.5 | 47% | 90% |
+| 0.6 | 29% | 94% |
+
+- A text match is not proof: 39% of the statements dropped at 0.4 were supported by the judge.
+- A small model (`gpt-oss-20b`) judging each claim against its best-matching sentence kept 42% at
+  90% supported, no better than the word match at the same share. Requiring both kept 35% at 95%.
+- Supported means supported by the judge, not true.
+
 ## Limitations
 
 - The judge is an LLM; use `--judge-model` with a different family from the generator.
