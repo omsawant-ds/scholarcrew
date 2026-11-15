@@ -10,7 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from ..config import Settings
-from ..llm import make_llm
+from ..llm import make_llm_pool
 from ..providers import check_llm
 from .runner import (
     check_thresholds,
@@ -57,9 +57,10 @@ def main(argv: list[str] | None = None) -> int:
         "date": date.today().isoformat(),
     }
 
-    judge = make_llm(judge_settings, temperature=0.0)
-    for label, settings in (("generator", gen_settings), ("judge", judge_settings)):
-        error = check_llm(settings)
+    judge = make_llm_pool(judge_settings, temperature=0.0)
+    generator_llm = make_llm_pool(gen_settings)
+    for label, settings, model in (("generator", gen_settings, generator_llm), ("judge", judge_settings, judge)):
+        error = check_llm(settings, model)
         if error:
             print(f"Cannot reach the {label} model ({settings.model}): {error}", file=sys.stderr)
             return 2
@@ -96,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"[{i}/{total}] {row['id']}: {detail}", file=sys.stderr, flush=True)
 
-        generate = make_generator(make_llm(gen_settings), gen_settings)
+        generate = make_generator(generator_llm, gen_settings)
         result = run(items, generate, judge, delay=args.delay, on_progress=progress, meta=meta)
         if previous:
             result = resume_merge(previous, result)

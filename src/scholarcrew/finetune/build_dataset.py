@@ -24,7 +24,7 @@ from ..config import Settings
 from ..evaluation.metrics import citation_scores, numeric_grounding, structure_score
 from ..evaluation.runner import _Recorder
 from ..grounding import normalize_citations
-from ..llm import make_llm
+from ..llm import make_llm_pool
 from ..providers import check_llm
 from .freeze import load_frozen
 
@@ -173,11 +173,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     base = Settings.from_env()
     settings = replace(base, model=args.model or base.model)
-    error = check_llm(settings)
+    llm = make_llm_pool(settings)
+    error = check_llm(settings, llm)
     if error:
         print(f"Cannot reach the model ({settings.model}): {error}", file=sys.stderr)
         return 2
-    llm = make_llm(settings)
 
     def progress(i: int, total: int, row: dict, status: str) -> None:
         print(f"[{i}/{total}] {row['id']}: {status}", file=sys.stderr, flush=True)
