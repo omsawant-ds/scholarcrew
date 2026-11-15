@@ -1,76 +1,79 @@
-# Evaluating Large Language Model (LLM) Agents: Core Techniques  
+# LoRA Fine‑Tuning vs. Full Fine‑Tuning: A Comparative Overview  
 
 **Summary**  
-Evaluating LLM agents requires a mix of task‑oriented benchmarks, reward‑driven utility measures, process‑aware audit trails, efficiency accounting, and human‑alignment checks. Recent work converges on a toolbox that combines **standardised benchmark suites**, **reinforcement‑learning (RL)‑based utility scores**, **process‑aware multi‑step frameworks**, **efficiency‑oriented metrics**, **human‑aligned judging**, and **simulation / tool‑use environments** [1][3][4][5][6][8][9][10][11][12][13][14].
+LoRA (Low‑Rank Adaptation) delivers dramatic reductions in trainable parameters and compute cost while often matching or surpassing full fine‑tuning on a variety of downstream tasks. However, full fine‑tuning retains an advantage on tasks that require the model’s full capacity. The trade‑off hinges on task characteristics, model size, and available resources, with emerging hybrid methods aiming to combine the strengths of both approaches.
 
 ---
 
-## 1. Standardised Benchmarks & Simulated Tool‑Use Environments  
+## 1. Down‑stream Performance  
 
-| Technique | What It Measures | How It Works |
-|-----------|------------------|--------------|
-| **AgentBench, RecoAtlas, AgentPerfBench, BenchLM (133 benchmarks)** | Task‑success rate, set‑level utility, diversity, latency, token consumption, cost | Fixed prompts, APIs, and ground‑truth metrics are applied to simulated environments (e.g., shopping recommendation, code generation, terminal use, browsing) so results are comparable across models [1][9][10] |
-| **Survey checklist (Jul 2025/2026)** | Reproducibility, reporting standards | Enumerates “what to measure, how to report” and highlights fragmentation in existing suites [9][10] |
-| **Tool‑use simulators (e.g., browsing, code execution APIs)** | Correct tool calls, state updates, end‑task completion | Agents interact with simulated APIs; success is judged by functional outcomes [5][8][14] |
+| Scenario | LoRA result | Full‑FT result | Relative outcome |
+|----------|-------------|----------------|------------------|
+| Medical summarization – ROUGE‑1 | **43.52 ± 0.18** [7] | **40.67 ± 0.21** [7] | LoRA > Full‑FT |
+| QR‑LoRA on GLUE (601 parameters) | Matches or exceeds full‑FT [8] | — | LoRA ≈ Full‑FT |
+| Malware detection – explanation metrics | Mid‑range LoRA outperforms full‑FT; model size ↓ ≈ 81 % and training time ↓ > 80 % (15.5 % trainable) [4] | — | LoRA > Full‑FT on specific metrics |
+| Malware detection – BLEU/ROUGE | — | Up to **10 %** higher than any LoRA variant [4] | Full‑FT > LoRA |
+| Prompt‑safety classification (label‑only) | LoRA lags by **2–3 pp** [13] | Leads by 2–3 pp [13] | Full‑FT > LoRA |
+| Prompt‑safety (reason‑after‑verdict) | Gains **+4.0 pp**, closing gap to full‑FT [13] | — | LoRA improves, still not dominant |
+| Complex reasoning post‑training | Noticeable gap vs. full‑FT, prompting hybrid ideas [5] | — | Full‑FT > LoRA |
+| Advice‑generation (QLoRA, 7B) | BERTScore F1 + 0.063 vs. synthetic data, but quality drops (base preferred 46 % vs. fine‑tuned 18 %) [14] | — | Mixed: metric ↑, human quality ↓ |
 
-*Consensus*: All recent papers agree that shared benchmark suites are the backbone of any evaluation regime [1][5][8][9][10][12]. The newer suites aim to close gaps caused by fragmented earlier benchmarks [9][10].
-
----
-
-## 2. Reward‑Based & Process‑Aware Evaluation  
-
-| Technique | What It Measures | How It Works |
-|-----------|------------------|--------------|
-| **Offline RL critic (Retrospex)** | Cumulative reward, set‑level utility, long‑horizon decision quality | Learns action‑value functions from logged trajectories and combines them with LLM likelihoods [2] |
-| **RecoAtlas RL environment** | Retrieval quality, complementarity, diversity | Simulates user behaviour and provides reward signals for multi‑step agent decisions [2] |
-| **AEMA (Adaptive Evaluation Multi‑Agent)** | Auditable multi‑step performance, stability across heterogeneous workflows | Plans, executes, and aggregates evaluations with human oversight or LLM‑as‑judge, producing a structured audit trail [3] |
-
-*Points of tension*: While RL‑based rewards are seen as principled for long‑horizon assessment, some warn that efficiency‑focused evaluations using method‑specific prompts can inflate gains; thus RL metrics should be measured on generic task distributions [3]. No direct disagreement on the need for process‑aware reporting [6][9][11].
-
-*Evidence strength*: Benchmarks and RL environments are concretely implemented and publicly released (strong), whereas offline‑critic approaches are newer and evaluated on limited domains (moderate‑strong) [2][3].
+**Takeaway** – LoRA can be on par with or better than full fine‑tuning when the downstream shift aligns with a low‑rank adaptation or when additional regularisation helps. Full fine‑tuning still dominates on tasks demanding maximal expressive capacity or on holistic quality metrics.
 
 ---
 
-## 3. Efficiency, Human Alignment, and Cost‑Regularised Metrics  
+## 2. Resource Efficiency  
 
-| Technique | What It Measures | How It Works |
-|-----------|------------------|--------------|
-| **CROP (Cost‑Regularised Prompt Optimisation)** | Token cost vs. accuracy trade‑off | Penalises response length while preserving task success [4] |
-| **Pruning / Edge‑Removal studies** | Cost‑performance curve when removing agents or communication links | Evaluates how reductions affect token usage, latency, and overall utility [3] |
-| **Human‑match rate** | Alignment with human judgement (trustworthiness) | Compares agent outputs to human annotations on tasks such as student‑reflection assessment [13] |
-| **LLM‑as‑judge vs. Human‑in‑the‑loop protocols** | Bias‑controlled scoring, alignment safety | Uses calibrated LLM judges with cross‑checking safeguards to avoid “judge‑contamination” [6][9][11] |
+* **Parameter reduction** – ≈ 81 % size cut in malware study [4]; > 99 % reduction compared with full fine‑tuning in general surveys [15]; QR‑LoRA uses only **601 parameters** (> 1000× fewer) [8].  
+* **Training cost** – LoRA with 15.5 % trainable parameters cuts training time by > 80 %; 4‑bit QLoRA (41.9 M LoRA params) runs on free‑tier GPUs [14].  
+* **Memory & wall‑clock** – Dramatically lower GPU memory footprint enables fine‑tuning on modest hardware [14]; cost considerations highlighted in a Chinese‑instruction study [12].
 
-*Consensus*: Human alignment is essential, and safeguards for LLM judges are widely endorsed [6][9]. Efficiency metrics are increasingly reported, but the community cautions that many reported gains may be artefacts of evaluation setups; cost‑regularised objectives like CROP provide a more principled approach [3][4].
+**Takeaway** – Across all reported studies, LoRA is far more **parameter‑ and compute‑efficient**, making it attractive for budget‑constrained or rapid‑iteration settings.
 
-*Evidence strength*: Human‑aligned evaluations have strong empirical backing across multiple studies, while efficiency metrics are promising but still lack a unified standard [13][4][3].
+---
+
+## 3. Theoretical & Structural Differences  
+
+* **Generalization risk** – In a linear‑regression setting, LoRA can achieve **lower excess risk** than full fine‑tuning when the pre‑training‑to‑down‑stream shift is low‑rank; rank of the adapter strongly influences test accuracy, with very low rank sometimes improving performance despite limited expressivity [1].  
+* **Spectral properties** – LoRA and full fine‑tuning produce weight matrices with distinct singular‑value spectra. LoRA introduces “intruder dimensions” (new high‑ranking singular vectors) absent in full fine‑tuning. Forgetting is overall lower for LoRA but highly localized to these intruder dimensions; scaling them down improves modeling of the pre‑training distribution with only a small downstream performance drop [2].
+
+**Takeaway** – LoRA’s low‑rank updates reshape the model’s internal geometry, offering potential generalization benefits in low‑rank shift regimes while altering forgetting dynamics.
+
+---
+
+## 4. Hybrid & Mixed‑Regime Strategies  
+
+* **Mixture of LoRA and Full (MoLF)** – An optimizer that dynamically routes updates between LoRA and full fine‑tuning, enabling continuous navigation between the two regimes [3].  
+* **Hybrid‑LoRA** – Applies full fine‑tuning only to a small subset of modules poorly suited to low‑rank adaptation, aiming to close performance gaps on complex reasoning tasks [5].
+
+**Takeaway** – Emerging hybrid approaches acknowledge that **neither extreme is universally optimal** and seek to blend LoRA’s efficiency with full fine‑tuning’s capacity.
 
 ---
 
 ## Limitations  
 
-- **Fragmented benchmarks**: Despite growing suites, coverage of real‑world, open‑ended tasks remains limited, potentially biasing evaluations toward narrow domains [9][10].  
-- **RL evaluation maturity**: Offline‑critic and simulated reward environments are still nascent, with limited cross‑domain validation [2].  
-- **Efficiency measurement variance**: Different studies use method‑specific prompts or datasets (e.g., GSM8K), making cost comparisons difficult [3][4].  
-- **LLM‑judge bias**: Even with safeguards, using an LLM to judge another LLM can inherit systematic biases, especially when training data overlap [6][9].  
-- **Simulation fidelity**: Simulated tool‑use environments may not capture all nuances of real APIs or GUIs, affecting external validity [14].  
+* The **theoretical excess‑risk analysis** is confined to a simple linear model and may not extrapolate to large language models [1].  
+* **Spectral/forgetting studies** focus on weight‑matrix properties without direct downstream performance measurements, limiting conclusions about practical impact [2].  
+* **Hybrid proposals** describe methodology and motivation but lack detailed quantitative results in the provided excerpts, making their efficacy uncertain [3][5].  
+* Many empirical comparisons are **task‑specific** (e.g., medical summarization, malware detection) and may not generalize across all domains or model scales.  
 
-These constraints highlight the need for continued standardisation, broader task coverage, and robust cross‑validation of emerging evaluation methods.
+---
 
 ## References
 
-[1] Yufei Xiang, Yiqun Shen, Yeqin Zhang et al. (2025). Retrospex: Language Agent Meets Offline Reinforcement Learning Critic. http://arxiv.org/abs/2505.11807v2
-[2] Meng Xiao, Xunxin Cai, Qingqing Long et al. (2025). Knowledge-Driven Agentic Scientific Corpus Distillation Framework for Biomedical Large Language Models Training. http://arxiv.org/abs/2504.19565v3
-[3] Jiamu Zhang, Lingxi Zhang, Pengjun Lu et al. (2026). Rethinking the Evaluation of Efficiency Methods for Multi-Agent Systems. http://arxiv.org/abs/2609.05933v1
-[4] Deep Shah, Sanket Badhe, Nehal Kathrotia et al. (2026). CROP: Token-Efficient Reasoning in Large Language Models via Regularized Prompt Optimization. http://arxiv.org/abs/2604.14214v1
-[5] Imad Aouali, Flavian Vasile, Clijo Jose et al. (2026). RecoAtlas: A Benchmark and RL Environment for LLM Recommendation Agents Optimizing Set-Level Utility. http://arxiv.org/abs/2605.18805v2
-[6] YenTing Lee, Keerthi Koneru, Zahra Moslemi et al. (2026). AEMA: Verifiable Evaluation Framework for Trustworthy and Controlled Agentic LLM Systems. http://arxiv.org/abs/2601.11903v1
-[7] Saman Forouzandeh, Wei Peng, Parham Moradi et al. (2025). Learning Hierarchical Procedural Memory for LLM Agents through Bayesian Selection and Contrastive Refinement. http://arxiv.org/abs/2512.18950v1
-[8] Cheuk Hang Lau, Zeyu Cao, Kevin Wong Cheuk Yin et al. (2026). AgentPerfBench: A Benchmarking and Evaluation Suite for Inference Performance of Agentic LLMs. http://arxiv.org/abs/2609.34683v1
-[9] Evaluation and Benchmarking of LLM Agents: A SurveyEvaluation and Benchmarking of LLM Agents: A Survey - arXiv.orgBenchmarking AI Agent Performance: A Practical ProtocolLLM Leaderboard & AI Model Benchmarks — Nov 2026 | BenchLMGitHub - THUDM/AgentBench: A Comprehensive Benchmark to ...10 AI agent benchmarks. https://arxiv.org/abs/2507.21504
-[10] Evaluation and Benchmarking of LLM Agents: A Survey - arXiv.org. https://arxiv.org/html/2507.21504v1
-[11] Benchmarking AI Agent Performance: A Practical Protocol. https://mlflow.org/articles/benchmarking-ai-agent-performance/
-[12] LLM Agent Benchmarks (November 2026): 133 Agentic Evals .... https://benchlm.ai/llm-agent-benchmarks
-[13] Gen Li, Li Chen, Cheng Tang et al. (2025). Single-Agent vs. Multi-Agent LLM Strategies for Automated Student Reflection Assessment. http://arxiv.org/abs/2504.05716v3
-[14] Chaoyun Zhang, Shilin He, Jiaxu Qian et al. (2024). Large Language Model-Brained GUI Agents: A Survey. http://arxiv.org/abs/2411.18279v12
-[15] Luyao Shi, Michael Kazda, Bradley Sears et al. (2024). Ask-EDA: A Design Assistant Empowered by LLM, Hybrid RAG and Abbreviation De-hallucination. http://arxiv.org/abs/2406.06575v1
-[16] Debdeep Sanyal, Murari Mandal (2025). Agents Are All You Need for LLM Unlearning. http://arxiv.org/abs/2502.00406v2
+[1] Ali Zindari, Rotem Mulayoff, Sebastian U. Stich (2026). LoRA vs. Full Fine-Tuning: A Theoretical Perspective. http://arxiv.org/abs/2605.19018v1
+[2] Reece Shuttleworth, Jacob Andreas, Antonio Torralba et al. (2024). LoRA vs Full Fine-tuning: An Illusion of Equivalence. http://arxiv.org/abs/2410.21228v3
+[3] Haozhan Tang, Xiuqi Zhu, Xinyin Zhang et al. (2026). Beyond LoRA vs. Full Fine-Tuning: Gradient-Guided Optimizer Routing for LLM Adaptation. http://arxiv.org/abs/2605.07111v3
+[4] Stephen C. Gravereaux, Sheikh Rabiul Islam (2025). Accuracy and Efficiency Trade-Offs in LLM-Based Malware Detection and Explanation: A Comparative Study of Parameter Tuning vs. Full Fine-Tuning. http://arxiv.org/abs/2511.19654v1
+[5] Chengqian Zhang, Wei Zhu, Kyumin Lee (2026). Hybrid-LoRA: Bridging Full Fine-Tuning and Low-Rank Adaptation for Post-Training. http://arxiv.org/abs/2605.18822v1
+[6] Haojie Zhang (2025). DropLoRA: Sparse Low-Rank Adaptation for Parameter-Efficient Fine-Tuning. http://arxiv.org/abs/2508.17337v1
+[7] Ulugbek Shernazarov, Rostislav Svitsov, Bin Shi (2026). Parameter-Efficient Fine-Tuning for Medical Text Summarization: A Comparative Study of Lora, Prompt Tuning, and Full Fine-Tuning. http://arxiv.org/abs/2603.21970v1
+[8] Jessica Liang, Anirudh Bharadwaj (2025). QR-LoRA: QR-Based Low-Rank Adaptation for Efficient Fine-Tuning of Large Language Models. http://arxiv.org/abs/2508.21810v1
+[9] LoRA (machine learning) - Wikipedia. https://en.wikipedia.org/wiki/LoRA_(machine_learning)
+[10] Low Rank Adaptation (LoRA) - GeeksforGeeks. https://www.geeksforgeeks.org/deep-learning/low-rank-adaptation-lora/
+[11] Low Rank Adaptation vs Full Fine Tuning: A Practitioner's Guide. https://sivaro.in/articles/low-rank-adaptation-vs-full-fine-tuning-a-practitioners/
+[12] Xianghui Sun, Yunjie Ji, Baochang Ma et al. (2023). A Comparative Study between Full-Parameter and LoRA-based Fine-Tuning on Chinese Instruction Data for Instruction Following Large Language Model. http://arxiv.org/abs/2304.08109v2
+[13] John Alderete, Srirakshith Betageri, Jennifer Flynn et al. (2026). Task Format as a Factor in Adaptation: A Controlled Comparison of LoRA and Full Fine-Tuning for Prompt-Safety Classification. http://arxiv.org/abs/2610.33813v1
+[14] Md Millat Hosen (2025). Fine-Tuning a 7B Advisor on Free-Tier GPUs: An Adapter-Handoff Recipe and a Synthetic-Data Reliability Caution. http://arxiv.org/abs/2504.15610v4
+[15] Keith Ando Ogawa, Bruno Lopes Yamamoto, Lucas Lauton de Alcantara et al. (2026). Layer-wise LoRA fine-tuning: a similarity metric approach. http://arxiv.org/abs/2602.05988v2
+

@@ -134,12 +134,16 @@ def _repair_sentence(sentence: str, by_source: dict[int, set[str]]) -> str:
     chosen = sorted({i for i in cited if match.get(i, 0) >= REPAIR_KEEP_SHARE * match[best]} | {best})
     if chosen == cited:
         return sentence
-    # Take the old citations out, close the gaps they leave, and put the new one before the final stop.
-    bare = re.sub(r"(\S)[ \t]{2,}(\S)", r"\1 \2", strip_cites(sentence).rstrip())
-    bare = re.sub(r"[ \t]+([.,;:!?])", r"\1", bare)
+    # The new citation takes the place of the last old one, so "([3])" becomes "([2])". Earlier
+    # citations in the same statement are removed, and the gaps and empty brackets they leave closed.
     marker = "[" + ", ".join(map(str, chosen)) + "]"
-    end = re.search(r"([.!?]+[\"')\]]*)$", bare)
-    return f"{bare[: end.start()]} {marker}{end.group(1)}" if end else f"{bare} {marker}"
+    groups = list(GROUP.finditer(sentence))
+    out = sentence[: groups[-1].start()] + marker + sentence[groups[-1].end() :]
+    for group in reversed(groups[:-1]):  # before the last one, so their positions are unchanged
+        out = out[: group.start()] + out[group.end() :]
+    out = re.sub(r"\(\s*\)", "", out)
+    out = re.sub(r"(\S)[ \t]{2,}(\S)", r"\1 \2", out)
+    return re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
 
 
 def statistics_in(text: str) -> list[str]:

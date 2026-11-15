@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait as wait_for
@@ -24,6 +25,23 @@ SYSTEM = (
 # search services vary a lot (arXiv in particular), and a slow one should cost a few sources,
 # not half a minute.
 SEARCH_BUDGET_SECONDS = 8.0
+
+
+MAX_TITLE = 120
+
+
+def tidy_title(title: str) -> str:
+    """One line, at most MAX_TITLE characters. Web pages sometimes return a title that is the real
+    one repeated with a site name and a list of related links."""
+    title = " ".join(title.split())
+    return title if len(title) <= MAX_TITLE else title[:MAX_TITLE].rsplit(" ", 1)[0] + "..."
+
+
+def same_title(first: str, second: str) -> bool:
+    """True if one title contains the other, ignoring case and punctuation. Short titles are never
+    treated as duplicates."""
+    a, b = (re.sub(r"[^a-z0-9]", "", t.lower()) for t in (first, second))
+    return len(a) >= 20 and len(b) >= 20 and (a in b or b in a)
 
 
 def plan_queries(llm: BaseChatModel, question: str) -> list[str]:
@@ -49,7 +67,9 @@ def make_researcher(
         seen: set[str] = set()
 
         def add(kind: str, title: str, url: str, text: str, cite: str) -> None:
-            if url and url not in seen:
+            # A web page about a paper already found (a mirror, a listing) adds nothing new.
+            repeat = kind == "web" and any(same_title(title, s["title"]) for s in sources)
+            if url and url not in seen and not repeat:
                 seen.add(url)
                 sources.append(
                     Source(id=len(sources) + 1, kind=kind, title=title, url=url, text=text, cite=cite)
@@ -77,7 +97,8 @@ def make_researcher(
             for p in papers:
                 add("arxiv", p.title, p.url, p.summary, p.cite())
             for w in pages:
-                add("web", w.title, w.url, w.snippet, f"{w.title}. {w.url}")
+                title = tidy_title(w.title)
+                add("web", title, w.url, w.snippet, f"{title}. {w.url}")
 
         return {"sources": sources, "log": [f"researcher: {len(sources)} sources from {queries}{notes}"]}
 

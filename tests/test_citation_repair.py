@@ -70,6 +70,19 @@ def test_repair_is_stable_and_changes_only_the_citation_numbers():
     assert strip(once) == strip(body)
 
 
+def test_a_citation_inside_brackets_is_replaced_in_place_and_leaves_no_empty_brackets():
+    """Regression: removing "[1]" from "([1])" left "()" and moved the citation to the end."""
+    body = "Smart eviction policies for the KV cache raise serving throughput ([1]); other work differs."
+    fixed = repair_citations(body, SOURCES)
+    assert "throughput ([2]);" in fixed and "()" not in fixed
+
+
+def test_several_citations_in_one_statement_collapse_into_one_at_the_last_position():
+    body = "Smart eviction [1] policies for the KV cache raise serving throughput [1] under long contexts."
+    fixed = repair_citations(body, SOURCES)
+    assert fixed == "Smart eviction policies for the KV cache raise serving throughput [2] under long contexts."
+
+
 def test_no_sources_means_nothing_to_repair():
     assert repair_citations(WRONG, []) == WRONG
 
