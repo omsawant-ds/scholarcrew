@@ -87,6 +87,61 @@ def units(body: str) -> list[str]:
     return out
 
 
+_STOPWORDS = frozenset(
+    ["the", "a", "an", "of", "and", "or", "to", "in", "on", "for", "with", "by", "is", "are", "was", "were", "be", "been", "that", "this", "these", "those", "it", "its", "as", "at", "from", "which", "can", "may", "also", "not", "than", "more", "most", "such", "using", "used", "use", "based", "into", "over", "between", "their", "they", "has", "have", "had", "but", "how", "what", "when", "where", "while", "across", "both", "each", "other", "our", "we"]
+)
+# A statement is moved to another source only if that source matches this much of its words, and
+# an existing citation is kept if it matches at least this share of what the best source does.
+REPAIR_MIN_MATCH = 0.2
+REPAIR_KEEP_SHARE = 0.6
+
+
+def content_words(text: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if w not in _STOPWORDS and len(w) > 2}
+
+
+def repair_citations(body: str, sources: list[dict]) -> str:
+    """Point each cited statement at the source whose text matches it best.
+
+    Writers, especially small ones, often cite source [1] for a fact that came from another source.
+    A citation should lead to the text that supports the statement, so for every statement with a
+    citation this finds the source sharing the most of its words (the title and the excerpt the
+    writer was given). The best source is added, and a citation that matches clearly less than the
+    best one is dropped. A statement that matches no source well (commentary, for example) is left
+    alone, so nothing is invented. Headings, table rows and the references list are not touched.
+    """
+    text, references = split_report(body)
+    by_source = {s["id"]: content_words(f"{s['title']} {s['text'][:1200]}") for s in sources}
+    lines = []
+    for line in text.split("\n"):
+        if not line.strip() or HEADING.match(line) or line.lstrip().startswith("|"):
+            lines.append(line)
+            continue
+        sentences = re.split(r"(?<=[.!?])\s+(?=[A-Z0-9*\[(])", line)
+        lines.append(" ".join(_repair_sentence(sent, by_source) for sent in sentences))
+    return "\n".join(lines) + references
+
+
+def _repair_sentence(sentence: str, by_source: dict[int, set[str]]) -> str:
+    cited = sorted(set(cite_ids(sentence)))
+    words = content_words(strip_cites(sentence))
+    if not cited or not words or not by_source:
+        return sentence
+    match = {i: len(words & w) / len(words) for i, w in by_source.items()}
+    best = max(match, key=match.get)
+    if match[best] < REPAIR_MIN_MATCH:
+        return sentence
+    chosen = sorted({i for i in cited if match.get(i, 0) >= REPAIR_KEEP_SHARE * match[best]} | {best})
+    if chosen == cited:
+        return sentence
+    # Take the old citations out, close the gaps they leave, and put the new one before the final stop.
+    bare = re.sub(r"(\S)[ \t]{2,}(\S)", r"\1 \2", strip_cites(sentence).rstrip())
+    bare = re.sub(r"[ \t]+([.,;:!?])", r"\1", bare)
+    marker = "[" + ", ".join(map(str, chosen)) + "]"
+    end = re.search(r"([.!?]+[\"')\]]*)$", bare)
+    return f"{bare[: end.start()]} {marker}{end.group(1)}" if end else f"{bare} {marker}"
+
+
 def statistics_in(text: str) -> list[str]:
     """Figures that look like reported results: percentages and decimals (not years or list numbers).
 

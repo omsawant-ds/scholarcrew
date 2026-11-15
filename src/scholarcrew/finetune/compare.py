@@ -34,7 +34,7 @@ from pathlib import Path
 
 from ..agents.writer import SYSTEM, render_references, writer_input
 from ..evaluation.runner import METRICS, aggregate, score_row
-from ..grounding import normalize_citations
+from ..grounding import normalize_citations, repair_citations
 from .baselines import copy_notes_writer
 from .freeze import load_frozen
 
@@ -50,9 +50,13 @@ def strip_thinking(text: str) -> str:
     return re.sub(r"<think>.*\Z", "", text, flags=re.DOTALL).strip()
 
 
-def make_report(body: str, sources: list[dict]) -> str:
-    """A generated body with the real reference list added, exactly as the writer agent does."""
-    return f"{normalize_citations(strip_thinking(body)).strip()}\n\n{render_references(sources)}\n"
+def make_report(body: str, sources: list[dict], repair: bool = False) -> str:
+    """A generated body with the real reference list added, as the writer agent does. With `repair`,
+    each cited statement is also pointed at the source that matches it best, as the agent now does."""
+    text = normalize_citations(strip_thinking(body)).strip()
+    if repair:
+        text = repair_citations(text, sources)
+    return f"{text}\n\n{render_references(sources)}\n"
 
 
 def key_of(row: dict) -> tuple[str, str, int]:
@@ -136,7 +140,7 @@ def generate(args: argparse.Namespace) -> int:
 # ---- step 2: scoring (laptop) ------------------------------------------------------------------
 
 
-def build_rows(frozen: list[dict], generations: list[dict]) -> list[dict]:
+def build_rows(frozen: list[dict], generations: list[dict], repair: bool = False) -> list[dict]:
     """One row per report to score: every generation, plus the copy-the-notes baseline.
 
     An empty generation becomes a failed row, so a writer that produces nothing is counted as
@@ -147,13 +151,13 @@ def build_rows(frozen: list[dict], generations: list[dict]) -> list[dict]:
     for item in frozen:
         base = {k: item[k] for k in ("id", "topic", "question", "sources")}
         rows.append({**base, "variant": COPY, "sample": 0, "seconds": 0.0,
-                     "report": make_report(copy_notes_writer(item), item["sources"]), "error": None})
+                     "report": make_report(copy_notes_writer(item), item["sources"], repair), "error": None})
     for gen in generations:
         item = by_id.get(gen["id"])
         if item is None:
             continue
         base = {k: item[k] for k in ("id", "topic", "question", "sources")}
-        report = make_report(gen["body"], item["sources"]) if strip_thinking(gen["body"]) else ""
+        report = make_report(gen["body"], item["sources"], repair) if strip_thinking(gen["body"]) else ""
         rows.append({**base, "variant": gen["variant"], "sample": gen["sample"],
                      "seconds": gen.get("seconds", 0.0), "report": report,
                      "error": None if report else "the model wrote nothing"})
@@ -281,7 +285,7 @@ def score(args: argparse.Namespace) -> int:
         print(f"No frozen questions in {args.frozen}.", file=sys.stderr)
         return 2
     generations = read_lines(Path(args.generations))
-    rows = build_rows(frozen, generations)
+    rows = build_rows(frozen, generations, repair=args.repair)
     if not generations:
         print("No generations found; only the copy-the-notes baseline will be scored.", file=sys.stderr)
 
@@ -330,6 +334,9 @@ def build_parser() -> argparse.ArgumentParser:
     sc.add_argument("--base-model", default="Qwen/Qwen3-4B", help="only recorded in the results")
     sc.add_argument("--delay", type=float, default=3.0, help="seconds to pause between reports")
     sc.add_argument("--out-dir", default="data/compare", help="where scores and the table are saved")
+    sc.add_argument("--repair", action="store_true",
+                    help="point each cited statement at its best-matching source before scoring "
+                         "(use a different --out-dir so the plain results are kept)")
     sc.add_argument("--n", type=int, help="only the first N questions")
     return parser
 
