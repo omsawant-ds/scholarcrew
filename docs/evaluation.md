@@ -212,6 +212,53 @@ Question by question, tuned against base:
 statement) but did not make its claims better supported. The honest outcome is no gain on
 faithfulness, which is why this is reported and the tuned writer is not used in the app.
 
+### Why it was less faithful, and a fix that needs no training
+
+To find out why, a judge ruled on every claim in 22 reports (242 claims). Both writers often cite
+source [1] for a fact that came from another source: claims citing only [1] were supported about
+a third of the time (31% for the tuned writer, 38% for the base), against 62% to 74% for all other
+claims. Claims that comment on what the sources do not say (a fifth of all claims) were supported
+only 29% to 40% of the time, because commentary cannot be found in any source. The tuned writer
+also wrote more, and more specific, claims, which gave it more chances to cite loosely.
+
+`repair_citations` (in `grounding.py`, applied by the writer agent) fixes the first problem with a
+rule and no model call: for every cited statement it finds the source whose title and excerpt
+share the most of its words, adds that source, and drops a citation that matches clearly less. A
+statement that matches no source well is left alone, so it never invents a citation, and the
+wording, headings, tables and reference list are untouched.
+
+On the 12-question check, judged by `gpt-oss-120b` (a different model family) on the same reports
+before and after, the share of supported claims rose from 60% to 71% for the base writer and
+from 49% to 64% for the tuned one. Then all 150 reports were re-scored with the repair, using the
+same judge as the table above:
+
+| Metric | Copy the notes | Base | Tuned |
+|---|---|---|---|
+| Faithfulness (judged) | **81%** (was 84%) | 61% (was 55%) | 61% (was 48%) |
+| Citation coverage | 49% | 47% | **88%** |
+| Source utilization | 52% | 49% (was 43%) | **56%** (was 52%) |
+| Relevance (judged) | 98% | 92% | **98%** (was 95%) |
+| Numeric grounding | 70% (n=22) | 83% (n=40) | **94%** (n=44) |
+
+Full table: [writer-comparison-repaired](results/writer-comparison-repaired.md). Question by
+question, tuned against base on faithfulness: better on 13, tied on 2, worse on 15, a mean
+difference of 0.0 points. On relevance the tuned writer was better on 9 and never worse.
+
+- **The repair helps, and it helps the weaker citer more.** Faithfulness rose 6 points for the
+  base writer and 13 for the tuned one, which closed the gap between them completely.
+- **The tuned writer now matches the base on faithfulness and is ahead on everything else**: it
+  cites far more of what it writes (88% against 47%), uses more of the sources, and its figures
+  match their cited source more often. This is the first measured benefit of the training, but a
+  tie on the main metric is not a win on it.
+- **Copying the notes is still the most faithful (81%).** It scored 3 points lower with the repair,
+  within the noise, because its citations were already well placed.
+- **Limits.** The repair picks sources by shared words with the same excerpt the judge reads, so
+  part of the gain is citations pointing where a judge will look. That is also where a reader would
+  look, but it is not proof that more claims are true. It was designed after seeing the first
+  results, on the same 30 questions. The per-question counts are balanced, so the gain is an average
+  over a few large improvements, not a small gain on every report. One judge scored the full run; the
+  cross-check with a second judge covers 12 questions only.
+
 ## Limitations
 
 - **Judge bias.** By default the judge is the same model as the generator, which tends to rate
