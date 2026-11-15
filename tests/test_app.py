@@ -93,7 +93,9 @@ def test_bad_key_shows_a_clear_error_and_no_report(monkeypatch):
     field(at, "Research question").set_value("q").run()
     next(b for b in at.button if b.label == "Research").click().run()
 
-    assert any("RuntimeError" in e.value and "test-key" not in e.value for e in at.error)
+    assert any("did not accept this key" in e.value for e in at.error)  # plain-language reason
+    assert any("RuntimeError" in c.value for c in at.caption)  # the technical detail stays available
+    assert all("test-key" not in e.value for e in at.error) and all("test-key" not in c.value for c in at.caption)
     assert not at.session_state["result"]
 
 
