@@ -101,6 +101,13 @@ p of about 0.04); repaired 13 better, 2 tied, 15 worse. Full tables:
   12 questions. The judge was not validated against human labels.
 - The repair was designed after seeing these results, on these questions, and matches against the
   same 1200-character excerpt the judge reads. It needs a fresh held-out set.
+- The repair matches by shared words, so it favours long sources and cannot fix a wrong citation
+  when generic words dominate. The judge checks a statement against all sources it cites, so it
+  cannot detect a citation attached to the wrong clause.
+- The numbers above were measured before two later changes: statements that join claims with
+  different sources are now left unrepaired, and the app's writer now places each statement's
+  citations at the end of that statement. Neither was re-measured. In an audit of the sample
+  report, 2 of 16 statements still cited a source that does not support them.
 - Faithfulness is support in retrieved abstracts and snippets, not factual accuracy.
 - Training examples were filtered with checks shared with the metrics, so the coverage gain is
   expected. The teacher prompt required a citation on every sentence. One training run, one

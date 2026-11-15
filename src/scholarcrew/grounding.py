@@ -134,16 +134,98 @@ def _repair_sentence(sentence: str, by_source: dict[int, set[str]]) -> str:
     chosen = sorted({i for i in cited if match.get(i, 0) >= REPAIR_KEEP_SHARE * match[best]} | {best})
     if chosen == cited:
         return sentence
-    # The new citation takes the place of the last old one, so "([3])" becomes "([2])". Earlier
-    # citations in the same statement are removed, and the gaps and empty brackets they leave closed.
+    # The new citation takes the place of the last run of old ones, so "([3])" becomes "([2])" and
+    # "[1], [2], [3]" becomes one marker. Earlier runs in the same statement are removed, and the
+    # gaps and empty brackets they leave closed.
     marker = "[" + ", ".join(map(str, chosen)) + "]"
-    groups = list(GROUP.finditer(sentence))
-    out = sentence[: groups[-1].start()] + marker + sentence[groups[-1].end() :]
-    for group in reversed(groups[:-1]):  # before the last one, so their positions are unchanged
-        out = out[: group.start()] + out[group.end() :]
+    run = _only_citation_run(sentence)
+    if run is None:  # several claims, each with its own citation: matching the whole statement would mix them
+        return sentence
+    out = sentence[: run[0]] + marker + sentence[run[1] :]
     out = re.sub(r"\(\s*\)", "", out)
     out = re.sub(r"(\S)[ \t]{2,}(\S)", r"\1 \2", out)
     return re.sub(r"[ \t]+([.,;:!?])", r"\1", out)
+
+
+def _citation_runs(sentence: str) -> list[tuple[int, int]]:
+    """Start and end of each run of citations: citations next to each other, separated only by commas."""
+    runs: list[list[int]] = []
+    for group in GROUP.finditer(sentence):
+        if runs and re.fullmatch(r"[\s,;]*", sentence[runs[-1][1] : group.start()]):
+            runs[-1][1] = group.end()
+        else:
+            runs.append([group.start(), group.end()])
+    return [(start, end) for start, end in runs]
+
+
+def _only_citation_run(sentence: str) -> tuple[int, int] | None:
+    """The citations in a statement, if they form one run. None if there are two or more."""
+    runs = _citation_runs(sentence)
+    return runs[0] if len(runs) == 1 else None
+
+
+_SENTENCE_BREAK = r"(?<=[.!?])\s+(?=[A-Z0-9*\[(])"
+_LEAD = re.compile(r"\s*(?:[-*+>]|\d+[.)])?\s*")  # a bullet or list number at the start of a line
+_JOINER = re.compile(r"^[\s,;:]*(?:(?:and|but|while|whereas|as well as|also|then)\s+)?", re.IGNORECASE)
+
+
+def _with_marker_at_end(text: str, marker: str, stop: str) -> str:
+    """`text` with `marker` placed before its final stop. `stop` is added if the text has none."""
+    text = text.rstrip()
+    end = re.search(r"([.!?]+[\"')\]]*)$", text)
+    if end:
+        return f"{text[: end.start()].rstrip()} {marker}{end.group(1)}"
+    return f"{text} {marker}{stop}"
+
+
+def _split_statement(sentence: str) -> list[str]:
+    """Give each claim in a sentence its own citations at its own end.
+
+    A sentence with one run of citations is left alone. Several runs naming the same sources are
+    merged into one at the end. Several runs naming different sources mean several claims, so the
+    sentence is split after each run: "A [1] and B [2]." becomes "A [1]." and "B [2]."
+    """
+    runs = _citation_runs(sentence)
+    if len(runs) < 2:
+        return [sentence]
+    ids = [frozenset(cite_ids(sentence[a:b])) for a, b in runs]
+    if len(set(ids)) == 1:
+        bare = sentence
+        for a, b in reversed(runs):
+            bare = bare[:a] + bare[b:]
+        bare = re.sub(r"(\S)[ \t]{2,}(\S)", r"\1 \2", bare)
+        bare = re.sub(r"[ \t]+([.,;:!?])", r"\1", bare)
+        return [_with_marker_at_end(bare, sentence[runs[-1][0] : runs[-1][1]], "")]
+    pieces, previous = [], 0
+    for a, b in runs:
+        pieces.append([sentence[previous:a], sentence[a:b]])
+        previous = b
+    pieces[-1][0] += sentence[previous:]  # words after the last citation belong to the last claim
+    out = []
+    for index, (text, marker) in enumerate(pieces):
+        text = _JOINER.sub("", text, count=1) if index else text
+        if len(text.split()) < 2:  # nothing worth splitting out: leave the sentence as written
+            return [sentence]
+        text = re.sub(r"[ \t]{2,}", " ", text.strip())
+        text = re.sub(r"[A-Za-z]", lambda m: m.group(0).upper(), text, count=1)
+        out.append(_with_marker_at_end(text, marker, "" if index == len(pieces) - 1 else "."))
+    return out
+
+
+def linewise_citations(body: str) -> str:
+    """Keep every statement's citations on that statement, so a citation can never belong to a
+    neighbouring claim. See `_split_statement`. Headings, table rows and the references list are
+    not touched."""
+    text, references = split_report(body)
+    lines = []
+    for line in text.split("\n"):
+        if not line.strip() or HEADING.match(line) or line.lstrip().startswith("|"):
+            lines.append(line)
+            continue
+        lead = _LEAD.match(line).group(0)
+        parts = [p for s in re.split(_SENTENCE_BREAK, line[len(lead) :]) for p in _split_statement(s)]
+        lines.append(lead + " ".join(parts))
+    return "\n".join(lines) + references
 
 
 def statistics_in(text: str) -> list[str]:

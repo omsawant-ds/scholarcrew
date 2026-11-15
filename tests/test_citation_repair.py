@@ -77,10 +77,20 @@ def test_a_citation_inside_brackets_is_replaced_in_place_and_leaves_no_empty_bra
     assert "throughput ([2]);" in fixed and "()" not in fixed
 
 
-def test_several_citations_in_one_statement_collapse_into_one_at_the_last_position():
-    body = "Smart eviction [1] policies for the KV cache raise serving throughput [1] under long contexts."
+def test_a_statement_with_separate_citations_for_separate_claims_is_left_alone():
+    """Regression: "claim A [2] and claim B [1]" was collapsed into one marker, which dropped the
+    citation of the first claim and could attach an unrelated source to it."""
+    body = ("Smart eviction policies for the KV cache raise throughput [1] and late chunking embeds "
+            "the document first [2].")
+    assert repair_citations(body, SOURCES) == body
+
+
+def test_neighbouring_citations_become_one_marker_without_stray_commas():
+    """Regression: "([1], [2], [1])" came out as "(,,[2])" because the commas stayed behind."""
+    body = "Smart eviction policies for the KV cache raise serving throughput ([1], [2], [1])."
     fixed = repair_citations(body, SOURCES)
-    assert fixed == "Smart eviction policies for the KV cache raise serving throughput [2] under long contexts."
+    assert ",," not in fixed and "(," not in fixed
+    assert fixed == "Smart eviction policies for the KV cache raise serving throughput ([2])."
 
 
 def test_no_sources_means_nothing_to_repair():
