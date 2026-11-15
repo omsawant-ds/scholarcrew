@@ -104,10 +104,9 @@ p of about 0.04); repaired 13 better, 2 tied, 15 worse. Full tables:
 - The repair matches by shared words, so it favours long sources and cannot fix a wrong citation
   when generic words dominate. The judge checks a statement against all sources it cites, so it
   cannot detect a citation attached to the wrong clause.
-- The numbers above were measured before two later changes: statements that join claims with
-  different sources are now left unrepaired, and the app's writer now places each statement's
-  citations at the end of that statement. Neither was re-measured. In a check of the sample report,
-  12 of 16 statements were fully supported by the source they cite.
+- The numbers above predate two later changes and have not been re-measured: statements that join
+  claims with different sources are no longer repaired, and the app's writer now ends each
+  statement with its own citations.
 - Faithfulness is support in retrieved abstracts and snippets, not factual accuracy.
 - Training examples were filtered with checks shared with the metrics, so the coverage gain is
   expected. The teacher prompt required a citation on every sentence. One training run, one

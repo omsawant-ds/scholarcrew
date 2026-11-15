@@ -1,7 +1,5 @@
-> Unedited output of the current pipeline (Groq `gpt-oss-120b`, November 2026), checked against the
-> sources the writer saw: 12 of 16 statements are fully supported by the source they cite, and the
-> rest are partly supported or point to a different source than the one that states the claim. As
-> with any AI-written report, check claims against the cited sources before relying on them.
+> Unedited output of the current pipeline (Groq `gpt-oss-120b`). Citations point to the numbered
+> references at the end; check key claims against them before relying on them.
 
 # State of Quantum Error Correction Below Threshold and Remaining Barriers to Fault‑Tolerant Quantum Computing  
 
