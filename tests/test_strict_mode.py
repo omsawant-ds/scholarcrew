@@ -42,11 +42,34 @@ def test_numbers_must_appear_in_the_cited_source():
 
 
 def test_unsupported_statements_are_dropped_and_everything_else_is_kept():
-    body = f"# Title\n\n{GOOD} {BAD}\n\nAn uncited remark about the field.\n\n| A | B [1] |\n\n## References\n\n[1] c1\n"
+    body = f"# Title\n\n{GOOD} {BAD}\n\nAn uncited remark about the field.\n\n## References\n\n[1] c1\n"
     out, counts = verify_citations(body, SOURCES, 0.4)
     assert counts == {"kept": 1, "dropped": 1}
     assert GOOD in out and "annealers" not in out
-    assert "An uncited remark" in out and "| A | B [1] |" in out and "[1] c1" in out and "# Title" in out
+    assert "An uncited remark" in out and "[1] c1" in out and "# Title" in out
+
+
+TABLE = (
+    "| Method | What it does | Evidence |\n|---|---|---|\n"
+    "| Late chunking | Embeds the whole document first and then splits it | Source one [1] |\n"
+    "| Quantum annealing | Dramatically outperforms every classical optimizer | Source one [1] |\n"
+    "| Uncited row | Nothing to check here | none |\n"
+)
+
+
+def test_table_rows_are_checked_one_by_one_and_uncited_rows_stay():
+    out, counts = verify_citations(f"# T\n\n{TABLE}\n## References\n\n[1] c1\n", SOURCES, 0.4)
+    assert counts == {"kept": 1, "dropped": 1}
+    assert "Late chunking" in out and "Quantum annealing" not in out and "Uncited row" in out
+    assert "| Method | What it does | Evidence |" in out and "|---|---|---|" in out  # header stays
+
+
+def test_a_table_with_no_rows_left_is_removed_entirely():
+    table = ("| Method | Evidence |\n|---|---|\n"
+             "| Quantum annealing outperforms optimizers | Source [1] |\n")
+    out, counts = verify_citations(f"# T\n\n{table}\n{GOOD}\n", SOURCES, 0.4)
+    assert counts == {"kept": 1, "dropped": 1}
+    assert "| Method |" not in out and "|---|" not in out and GOOD in out
 
 
 def test_a_line_whose_only_statement_is_dropped_disappears():
@@ -69,6 +92,7 @@ def test_a_strict_report_is_never_empty_when_nothing_matches():
     state = {"question": "q", "notes": "n", "sources": SOURCES}
     out = make_writer(Script(f"# T\n\n{BAD}\n"), strict=True)(state)
     assert "annealers" in out["report"] and "showing the full report" in out["log"][0]
+    assert out["evidence"] == {"kept": 0, "dropped": 1, "fallback": True}  # the app words its caption from this
 
 
 def test_the_setting_reaches_the_writer_through_the_graph():
@@ -92,3 +116,40 @@ def test_the_app_offers_strict_mode_off_by_default():
     box = next(c for c in app.checkbox if "Strict" in c.label)
     assert box.value is False
     assert "90%" in box.help and "not proof" in box.help
+
+
+class WriterSaysNonsense(FakeLLM):
+    """A model whose report states something its source does not."""
+
+    def invoke(self, messages):
+        if "technical writer" in messages[0].content:
+            return AIMessage(content="# Report\n\nQuantum annealers dramatically outperform every classical optimizer [1].")
+        return super().invoke(messages)
+
+
+def _run_app(monkeypatch, model, strict):
+    real = graph.stream_crew
+    monkeypatch.setattr(providers, "make_llm", lambda s: model)
+    monkeypatch.setattr(
+        graph, "stream_crew",
+        lambda q, m, s: real(q, model, s, arxiv_search=fake_arxiv, web_search=fake_web),
+    )
+    app = AppTest.from_file(str(Path(__file__).parent.parent / "streamlit_app.py"), default_timeout=30).run()
+    next(c for c in app.checkbox if "Strict" in c.label).set_value(strict).run()
+    next(w for w in app.text_input if w.label == "API key").set_value("test-key").run()
+    next(w for w in app.text_input if w.label == "Research question").set_value("Does RAG reduce hallucination?").run()
+    next(b for b in app.button if b.label == "Research").click().run()
+    return app
+
+
+def test_the_caption_says_so_when_strict_mode_matched_nothing_and_shows_the_full_report(monkeypatch):
+    app = _run_app(monkeypatch, WriterSaysNonsense(), strict=True)
+    captions = [c.value for c in app.caption]
+    assert any("could not match any cited statement" in c for c in captions)
+    assert not any(c.startswith("Strict mode:") for c in captions)
+    assert "annealers" in app.session_state["result"]["report"]
+
+
+def test_the_caption_counts_the_statements_when_strict_mode_filtered_some(monkeypatch):
+    app = _run_app(monkeypatch, FakeLLM(), strict=True)
+    assert any(c.value.startswith("Strict mode:") and "cited statements shown" in c.value for c in app.caption)

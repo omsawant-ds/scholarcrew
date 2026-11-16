@@ -135,11 +135,13 @@ other 18 give the same result (64% kept, 90% supported at 0.4).
 |---|---|---|
 | none | 100% | 75% |
 | 0.3 | 83% | 85% |
-| **0.4 (used)** | **67%** | **90%** |
+| **0.4 (used; table rows 0.3)** | **69%** | **90%** |
 | 0.5 | 50% | 93% |
 | 0.6 | 30% | 92% |
 
 - Uncited sentences are the writer's own text. Neither the judge nor strict mode checks them.
+- Table rows are checked as whole rows at 0.3, because they are short and already well supported
+  (92% judge-supported). That rests on 37 rows, a small sample.
 - A text match is not proof: about 40% of the statements dropped at 0.4 were supported by the judge.
 - A small model (`gpt-oss-20b`) judging each claim against its best-matching sentence kept 42% at
   90% supported, no better than the word match at the same share. Requiring both kept 35% at 95%.
