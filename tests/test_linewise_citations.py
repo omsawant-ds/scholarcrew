@@ -79,4 +79,5 @@ def test_the_writer_splits_two_claims_and_then_points_each_at_its_best_source():
 
 def test_the_app_prompt_adds_the_layout_rules_and_the_training_prompt_is_unchanged():
     assert "Citation layout" in APP_SYSTEM and APP_SYSTEM.startswith(SYSTEM)
+    assert "Do not cite your own" in APP_SYSTEM  # own comparisons and conclusions stay uncited
     assert "Citation layout" not in SYSTEM  # fine-tuning data and the comparison keep using this one
