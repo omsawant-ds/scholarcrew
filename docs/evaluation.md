@@ -127,17 +127,21 @@ The app's writer cites only statements of fact taken from the notes; its own com
 conclusions are left uncited. Against a writer that cited every statement, the judge supported 75%
 of cited statements instead of 67% (73% against 66% on the 18 questions not used for tuning).
 
-Measured on the 30 evaluation questions (385 cited statements), with the app's writer
-(`gpt-oss-120b`) and judge `qwen3.8-27b`. The threshold was chosen on 12 of the questions; the
-other 18 give the same result (64% kept, 90% supported at 0.4).
+Statements in a Limitations section are never filtered: they are the writer's remarks about the
+evidence, and a source does not state them. They were 15% of the cited statements, and strict mode
+used to delete 71% of them.
+
+Measured on the 30 evaluation questions (326 cited statements outside Limitations sections), with
+the app's writer (`gpt-oss-120b`) and judge `qwen3.8-27b`. The threshold was chosen on 12 of the
+questions; the other 18 give the same result (72% kept, 90% supported at 0.4).
 
 | Threshold | Statements kept | Supported by the judge, among those kept |
 |---|---|---|
-| none | 100% | 75% |
-| 0.3 | 83% | 85% |
-| **0.4 (used; table rows 0.3)** | **69%** | **90%** |
-| 0.5 | 50% | 93% |
-| 0.6 | 30% | 92% |
+| none | 100% | 80% |
+| 0.3 | 88% | 86% |
+| **0.4 (used; table rows 0.3)** | **76%** | **90%** |
+| 0.5 | 60% | 93% |
+| 0.6 | 40% | 94% |
 
 - Uncited sentences are the writer's own text. Neither the judge nor strict mode checks them.
 - Table rows are checked as whole rows at 0.3, because they are short and already well supported

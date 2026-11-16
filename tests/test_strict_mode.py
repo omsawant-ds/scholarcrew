@@ -153,3 +153,19 @@ def test_the_caption_says_so_when_strict_mode_matched_nothing_and_shows_the_full
 def test_the_caption_counts_the_statements_when_strict_mode_filtered_some(monkeypatch):
     app = _run_app(monkeypatch, FakeLLM(), strict=True)
     assert any(c.value.startswith("Strict mode:") and "cited statements shown" in c.value for c in app.caption)
+
+
+def test_the_limitations_section_is_never_filtered_but_other_sections_are():
+    remark = "The routing description lacks quantitative results, so its strength is speculative [2]."
+    body = (f"# T\n\n## Findings\n\n{GOOD} {BAD}\n\n## Limitations\n\n- {remark}\n- {BAD}\n\n"
+            f"## More findings\n\n{BAD}\n\n## References\n\n[1] c1\n")
+    out, counts = verify_citations(body, SOURCES, 0.4)
+    assert counts == {"kept": 1, "dropped": 2}  # the two outside Limitations; the two inside are not counted
+    assert remark in out and out.count("annealers") == 1  # only the one inside Limitations survives
+    assert "## More findings" in out and "[1] c1" in out
+
+
+def test_limitations_is_recognised_at_any_heading_level_and_ends_at_the_next_section():
+    body = f"# T\n\n### Limitations\n\n{BAD}\n\n#### A detail\n\n{BAD}\n\n### Next\n\n{BAD}\n"
+    out, counts = verify_citations(body, SOURCES, 0.4)
+    assert out.count("annealers") == 2 and counts == {"kept": 0, "dropped": 1}  # subsections stay, Next is filtered
