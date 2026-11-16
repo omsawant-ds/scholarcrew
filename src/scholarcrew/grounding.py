@@ -206,7 +206,8 @@ def verify_citations(body: str, sources: list[dict], threshold: float) -> tuple[
     """Drop every cited statement whose cited sources do not contain matching text.
 
     Table rows are checked as whole rows against `TABLE_EVIDENCE_THRESHOLD`. Statements without a
-    citation, headings and the references list are left alone.
+    citation, headings, the references list and everything in a Limitations section are left alone:
+    limitations are the writer's remarks about the evidence, not facts a source states.
     Returns the new body and counts of cited statements kept and dropped.
     """
     text, references = split_report(body)
@@ -215,8 +216,22 @@ def verify_citations(body: str, sources: list[dict], threshold: float) -> tuple[
     lines: list[str] = []
     source_lines = text.split("\n")
     position = 0
+    limitations_level = 0  # heading level of a Limitations section we are inside, else 0
     while position < len(source_lines):
         line = source_lines[position]
+        if HEADING.match(line):
+            level = len(line.strip()) - len(line.strip().lstrip("#"))
+            if limitations_level and level <= limitations_level:
+                limitations_level = 0
+            if re.search(r"\blimitations?\b", line, re.IGNORECASE):
+                limitations_level = level
+            lines.append(line)
+            position += 1
+            continue
+        if limitations_level:  # the writer's own remarks about the evidence: never filtered
+            lines.append(line)
+            position += 1
+            continue
         if line.lstrip().startswith("|"):
             end = position
             while end < len(source_lines) and source_lines[end].lstrip().startswith("|"):
