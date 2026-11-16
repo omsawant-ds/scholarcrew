@@ -21,8 +21,8 @@ AUTHOR = "Om Sawant"
 AUTHOR_URL = "https://github.com/omsawant-ds"
 STRICT_HELP = (
     "Keeps only the statements whose cited source contains matching text, and numbers that appear "
-    "in it. Reports get shorter (about 40% of statements are dropped), and the ones that remain "
-    "were supported more often (about 86% against 67% in our tests). It is a text match, not proof."
+    "in it. Reports get shorter (about a third of cited statements are dropped), and the ones that "
+    "remain were supported more often (about 90% against 75% in our tests). It is a text match, not proof."
 )
 MODEL_HELP = (
     "Groq (free): the larger model, slower but more thorough. "

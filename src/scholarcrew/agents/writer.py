@@ -30,10 +30,12 @@ SYSTEM = (
 # Added for the app only. `SYSTEM` above is what the fine-tuning data and the writer comparison
 # used, so it stays as it was and their results remain reproducible.
 LAYOUT = (
-    "\nCitation layout: end every statement with the citation(s) for that statement only, like "
-    "'Statement [2].' Never put a citation in the middle of a sentence, and never join two "
-    "statements that have different sources into one sentence. Refer to sources only through the "
-    "bracket numbers: do not write 'the notes', 'the sources' or 'source 3' in the text."
+    "\nCitation layout: cite a statement only when it states a fact taken from the notes, and end "
+    "it with the citation(s) for that statement only, like 'Fact [2].' Do not cite your own "
+    "comparisons, conclusions, summaries or transitions: write those without a citation and keep "
+    "them short. Never put a citation in the middle of a sentence, and never join two facts that "
+    "have different sources into one sentence. Refer to sources only through the bracket numbers: "
+    "do not write 'the notes', 'the sources' or 'source 3' in the text."
 )
 APP_SYSTEM = SYSTEM + LAYOUT
 

@@ -91,4 +91,4 @@ def test_the_app_offers_strict_mode_off_by_default():
     app = AppTest.from_file(str(Path(__file__).parent.parent / "streamlit_app.py"), default_timeout=30).run()
     box = next(c for c in app.checkbox if "Strict" in c.label)
     assert box.value is False
-    assert "86%" in box.help and "not proof" in box.help
+    assert "90%" in box.help and "not proof" in box.help
