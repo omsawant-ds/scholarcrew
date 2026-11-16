@@ -47,7 +47,9 @@ def writer_input(question: str, notes: str) -> str:
 
 def render_references(sources: list[dict]) -> str:
     lines = [f"[{s['id']}] {s['cite']}" for s in sources]
-    return "## References\n\n" + "\n".join(lines)
+    # A blank line between entries: a single line break is shown as a space by Markdown, which ran
+    # the whole list together into one paragraph in the app and on GitHub.
+    return "## References\n\n" + "\n\n".join(lines)
 
 
 def make_writer(llm: BaseChatModel, strict: bool = False) -> Callable[[CrewState], dict]:
