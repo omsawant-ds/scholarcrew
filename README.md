@@ -32,9 +32,12 @@ Built on [LangGraph](https://github.com/langchain-ai/langgraph).
 - **Validated routing.** The supervisor checks every routing decision and falls back to a fixed
   order on malformed output. A step cap guarantees termination.
 - **Citations from retrieved sources only.** The reference list is built from the retrieved
-  sources, not written by the model. Each statement carries its own citations, re-pointed to the
-  source that best matches it.
-- **Optional strict mode.** Keeps only statements whose cited source contains matching text.
+  sources, not written by the model. The writer cites facts taken from sources and leaves its own
+  conclusions uncited; each cited statement carries its own citations, re-pointed to the source
+  that best matches it.
+- **Optional strict mode.** Keeps only cited statements whose source contains matching text. In
+  tests, about 90% of the statements kept were supported, against 80% without it, with about a
+  quarter dropped. A text match is not proof.
 - **Visible failures.** Model errors are logged, and the app checks the key and model before
   starting.
 - **Offline tests.** A scripted fake model and fake search tools; no network or key needed.
@@ -52,8 +55,9 @@ on 30 held-out questions (2 samples each, judge `qwen3.8-27b`):
 | Qwen3-4B + LoRA | 48% | 61% | 88% |
 
 Fine-tuning improved citation coverage, not faithfulness. The citation repair applied in the
-app raised both writers to 61%. Limitations (small sample, one judge, repair tuned on the same
-questions) are in [docs/evaluation.md](docs/evaluation.md).
+app raised both writers to 61%. Later writer changes and strict mode are measured in
+[docs/evaluation.md](docs/evaluation.md), with the limitations (small sample, one judge, repair
+tuned on the same questions).
 
 ## Run locally
 
@@ -61,6 +65,7 @@ questions) are in [docs/evaluation.md](docs/evaluation.md).
 pip install -e ".[app]"
 cp .env.example .env          # set LLM_API_KEY to your Groq key
 scholarcrew "How do researchers reduce hallucination in RAG systems?"
+scholarcrew "How do researchers reduce hallucination in RAG systems?" --strict
 streamlit run streamlit_app.py
 ```
 
