@@ -71,9 +71,10 @@ def make_writer(llm: BaseChatModel, strict: bool = False) -> Callable[[CrewState
                 body = strict_body
                 total = counts["kept"] + counts["dropped"]
                 log = f"writer: strict mode kept {counts['kept']} of {total} cited statements"
+                update["evidence"] = counts
             else:  # nothing matched, so a strict report would be empty: show the report as written
                 log = "writer: strict mode found no matching statements, showing the full report"
-            update["evidence"] = counts
+                update["evidence"] = {**counts, "fallback": True}
         report = f"{body}\n\n{render_references(sources)}\n"
         return {"report": report, "log": [log], **update}
 

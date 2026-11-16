@@ -7,9 +7,11 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import wait as wait_for
 from itertools import zip_longest
+from urllib.parse import urlparse
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from ..grounding import content_words
 from ..state import CrewState, Source
 from ..tools.arxiv import Paper
 from ..tools.web import WebResult
@@ -42,6 +44,39 @@ def same_title(first: str, second: str) -> bool:
     treated as duplicates."""
     a, b = (re.sub(r"[^a-z0-9]", "", t.lower()) for t in (first, second))
     return len(a) >= 20 and len(b) >= 20 and (a in b or b in a)
+
+
+# Dictionary and definition sites answer a word, not a research question: a query such as
+# "challenges in multi-agent coordination" can bring back "challenges - definition".
+JUNK_DOMAINS = (
+    "merriam-webster.com", "dictionary.cambridge.org", "dictionary.com", "thefreedictionary.com",
+    "collinsdictionary.com", "vocabulary.com", "thesaurus.com", "wiktionary.org",
+    "oxfordlearnersdictionaries.com", "urbandictionary.com", "lexico.com",
+)
+_NON_ENGLISH = re.compile(r"[぀-ヿ㐀-鿿가-힯]")
+
+
+def _stems(text: str) -> set[str]:
+    out = set()
+    for word in content_words(text):
+        for suffix in ("ations", "ation", "ings", "ing", "ed", "ies", "es", "ure", "s"):
+            if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+                word = word[: -len(suffix)]
+                break
+        out.add(word)
+    return out
+
+
+def is_off_topic_web(question: str, title: str, snippet: str, url: str) -> bool:
+    """True for a web result that cannot help: a dictionary page, a page whose title is not in
+    English, or one that shares no key word with the question."""
+    host = urlparse(url).netloc.lower().removeprefix("www.")
+    if any(host == d or host.endswith("." + d) for d in JUNK_DOMAINS):
+        return True
+    if _NON_ENGLISH.search(title):
+        return True
+    wanted = _stems(question)
+    return bool(wanted) and not (wanted & _stems(f"{title} {snippet}"))
 
 
 def plan_queries(llm: BaseChatModel, question: str) -> list[str]:
@@ -97,6 +132,8 @@ def make_researcher(
             for p in papers:
                 add("arxiv", p.title, p.url, p.summary, p.cite())
             for w in pages:
+                if is_off_topic_web(state["question"], w.title, w.snippet, w.url):
+                    continue
                 title = tidy_title(w.title)
                 add("web", title, w.url, w.snippet, f"{title}. {w.url}")
 

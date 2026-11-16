@@ -323,7 +323,9 @@ def render_result(result: dict) -> None:
     with report_tab:
         if result["report"]:
             evidence = result.get("evidence")
-            if evidence:
+            if evidence and evidence.get("fallback"):
+                st.caption("Strict mode could not match any cited statement to its source, so the full report is shown.")
+            elif evidence:
                 shown, total = evidence["kept"], evidence["kept"] + evidence["dropped"]
                 st.caption(f"Strict mode: {shown} of {total} cited statements shown.")
             with st.container(border=True):

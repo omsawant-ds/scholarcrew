@@ -14,7 +14,7 @@ from scholarcrew.finetune.freeze import (
     overlap,
 )
 
-ITEM = {"id": "tr-001", "topic": "RAG", "question": "How does X work?"}
+ITEM = {"id": "tr-001", "topic": "RAG", "question": "How does RAG work?"}
 
 
 def test_training_and_evaluation_questions_are_disjoint():
